@@ -174,7 +174,7 @@ const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 let peer = null;        // PeerJS 实例
-let mqtt = null;        // MQTT 客户端 (仅房间发现)
+let mqttClient = null;  // MQTT 客户端 (仅房间发现)
 let localStream = null;
 let micOn = true;
 let myPeerId = null;
@@ -206,22 +206,22 @@ async function joinRoom() {
 
   // 2. 连接 MQTT (房间发现)
   try {
-    mqtt = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
+    mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
   } catch(e) {
     setStatus('MQTT 连接失败: ' + e.message, true);
     leaveRoom();
     return;
   }
   let mqttReady = false;
-  mqtt.on('connect', () => {
+  mqttClient.on('connect', () => {
     mqttReady = true;
-    mqtt.subscribe('voice-room/' + room + '/#');
+    mqttClient.subscribe('voice-room/' + room + '/#');
   });
-  mqtt.on('error', (e) => {
+  mqttClient.on('error', (e) => {
     console.error('MQTT error:', e);
     setStatus('信令服务器不可达 · 刷新重试', true);
   });
-  mqtt.on('close', () => {
+  mqttClient.on('close', () => {
     if (!mqttReady) setStatus('信令连接超时 · 刷新重试', true);
   });
 
@@ -234,7 +234,7 @@ async function joinRoom() {
     showSelf(room);
     setStatus('', false, true, room);
     // 向房间广播自己的 PeerJS ID
-    mqtt.publish('voice-room/' + room + '/announce', peerId);
+    mqttClient.publish('voice-room/' + room + '/announce', peerId);
   });
 
   peer.on('error', (e) => {
@@ -249,7 +249,7 @@ async function joinRoom() {
   });
 
   // 4. 收到别人的 PeerJS ID → 打过去
-  mqtt.on('message', (topic, message) => {
+  mqttClient.on('message', (topic, message) => {
     const remoteId = message.toString();
     if (remoteId === myPeerId) return;        // 自己的消息, 忽略
     if (peers.has(remoteId)) return;           // 已经连着了
@@ -365,7 +365,7 @@ function leaveRoom() {
   for (const [, p] of peers) try { p.mediaConnection.close(); } catch(e) {}
   peers.clear();
   if (peer) { peer.destroy(); peer = null; }
-  if (mqtt) { try { mqtt.end(); } catch(e) {} mqtt = null; }
+  if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   myPeerId = null;
   currentRoom = null;
