@@ -150,12 +150,25 @@ body {
   </div>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script src="https://unpkg.com/mqtt@5.10.3/dist/mqtt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script>
 // ═══════ 信令层: EMQX 公共 MQTT (房间发现) + PeerJS (P2P 音频) ═══════
-// MQTT 只传 PeerJS ID (几十字节), 音频直连不经过任何服务器
-// EMQX 公共 Broker 免费, 无需注册
+
+// 检查依赖是否加载
+window.addEventListener('error', function(e) {
+  if (e.target && e.target.tagName === 'SCRIPT') {
+    document.getElementById('status').textContent = 'CDN 加载失败 · 请检查网络';
+    document.getElementById('status').className = 'status error';
+  }
+});
+
+setTimeout(function() {
+  if (typeof Peer === 'undefined' || typeof mqtt === 'undefined') {
+    document.getElementById('status').textContent = '依赖加载失败 · 刷新重试';
+    document.getElementById('status').className = 'status error';
+  }
+}, 3000);
 
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
@@ -192,11 +205,25 @@ async function joinRoom() {
   }
 
   // 2. 连接 MQTT (房间发现)
-  mqtt = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 10000 });
+  try {
+    mqtt = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
+  } catch(e) {
+    setStatus('MQTT 连接失败: ' + e.message, true);
+    leaveRoom();
+    return;
+  }
+  let mqttReady = false;
   mqtt.on('connect', () => {
-    mqtt.subscribe('voice-room/' + room + '/#');  // 听本房间所有人
+    mqttReady = true;
+    mqtt.subscribe('voice-room/' + room + '/#');
   });
-  mqtt.on('error', () => setStatus('信令连接失败 · 刷新重试', true));
+  mqtt.on('error', (e) => {
+    console.error('MQTT error:', e);
+    setStatus('信令服务器不可达 · 刷新重试', true);
+  });
+  mqtt.on('close', () => {
+    if (!mqttReady) setStatus('信令连接超时 · 刷新重试', true);
+  });
 
   // 3. 初始化 PeerJS (P2P 音频)
   const peerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
