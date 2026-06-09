@@ -233,7 +233,8 @@ async function joinRoom() {
   peer.on('open', () => {
     showSelf(room);
     setStatus('', false, true, room);
-    // 向房间广播自己的 PeerJS ID
+    // iOS: 用户手势期间恢复 AudioContext
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
     mqttClient.publish('voice-room/' + room + '/announce', peerId);
   });
 
@@ -258,6 +259,8 @@ async function joinRoom() {
   });
 }
 
+let audioContext = null;  // 共享 AudioContext (Web Audio API 比 <audio> 蓝牙兼容性好)
+
 // ═══════ WebRTC 通话 ═══════
 function setupCall(call) {
   const pid = call.peer;
@@ -266,12 +269,13 @@ function setupCall(call) {
   }
 
   call.on('stream', (remoteStream) => {
-    const audio = new Audio();
-    audio.srcObject = remoteStream;
-    audio.autoplay = true;
-    audio.play().catch(() => {});
+    // Web Audio API 代替 <audio> 元素 —— 蓝牙耳机兼容性更好
+    if (!audioContext) audioContext = new AudioContext();
+    if (audioContext.state === 'suspended') audioContext.resume();
+    const source = audioContext.createMediaStreamSource(remoteStream);
+    source.connect(audioContext.destination);
 
-    const data = { mediaConnection: call, stream: remoteStream, analyser: null };
+    const data = { mediaConnection: call, stream: remoteStream, source, analyser: null };
     peers.set(pid, data);
     addPeerCard(pid);
     setupVolumeMeter(pid, remoteStream, data);
@@ -366,6 +370,7 @@ function leaveRoom() {
   peers.clear();
   if (peer) { peer.destroy(); peer = null; }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
+  if (audioContext) { audioContext.close(); audioContext = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   myPeerId = null;
   currentRoom = null;
