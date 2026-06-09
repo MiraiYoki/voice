@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>语音聊天室</title>
+<title>空间语音聊天室</title>
 <style>
 :root {
   --bg: #0f0f11; --card: #1a1a1f; --text: #e4e4e7;
@@ -19,90 +19,67 @@ body {
 }
 .app {
   width: 100%; max-width: 520px; height: 100dvh;
-  display: flex; flex-direction: column; padding: 20px; gap: 14px;
+  display: flex; flex-direction: column; padding: 12px; gap: 8px;
 }
 
 /* ── Header ── */
-.header { text-align: center; padding: 6px 0; }
-.header h1 { font-size: 20px; font-weight: 590; letter-spacing: -0.02em; }
-.header .status { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.header { text-align: center; padding: 4px 0; flex-shrink: 0; }
+.header h1 { font-size: 18px; font-weight: 590; letter-spacing: -0.02em; }
+.header .status { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .status.online { color: var(--accent); }
 .status.error { color: var(--danger); }
-
-/* ── Room badge ── */
 .room-badge {
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(34,197,94,0.1); color: var(--accent);
-  padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 510;
+  padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 510;
 }
-.room-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.room-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+/* ── Map ── */
+.map-wrap {
+  flex: 1; min-height: 200px;
+  background: var(--card); border-radius: 14px;
+  border: 1px solid var(--border); overflow: hidden; position: relative;
+}
+.map-wrap canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.map-wrap canvas:active { cursor: grabbing; }
+.map-hint {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; color: var(--text2); opacity: 0.6;
+  pointer-events: none;
+}
 
 /* ── Self card ── */
-.self-card {
+.self-row {
   background: var(--card); border-radius: 14px;
-  padding: 16px; display: flex; align-items: center; gap: 12px;
-  border: 1px solid var(--border);
+  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--border); flex-shrink: 0;
 }
 .self-avatar {
-  width: 44px; height: 44px; border-radius: 50%;
+  width: 38px; height: 38px; border-radius: 50%;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   display: flex; align-items: center; justify-content: center;
-  font-size: 20px; flex-shrink: 0;
+  font-size: 18px; flex-shrink: 0;
 }
 .self-info { flex: 1; }
-.self-name { font-size: 15px; font-weight: 590; }
-.self-mic { font-size: 12px; }
+.self-name { font-size: 14px; font-weight: 590; }
+.self-mic { font-size: 11px; }
 .self-mic.on { color: var(--accent); }
 .self-mic.off { color: var(--danger); }
-
-.controls { display: flex; gap: 6px; }
 .ctrl-btn {
-  width: 38px; height: 38px; border-radius: 50%; border: none;
-  font-size: 16px; cursor: pointer; transition: all 0.15s;
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  font-size: 15px; cursor: pointer; transition: all 0.15s;
   display: flex; align-items: center; justify-content: center;
 }
 .ctrl-btn.mic { background: rgba(34,197,94,0.12); color: var(--accent); }
 .ctrl-btn.mic.off { background: rgba(239,68,68,0.12); color: var(--danger); }
 .ctrl-btn.leave { background: rgba(239,68,68,0.1); color: var(--danger); }
 
-/* ── Peers ── */
-.peers { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-.peer-card {
-  background: var(--card); border-radius: 14px;
-  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
-  border: 1px solid var(--border);
-  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.peer-avatar {
-  width: 40px; height: 40px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
-.peer-info { flex: 1; }
-.peer-name { font-size: 14px; font-weight: 510; }
-.peer-status { font-size: 11px; color: var(--text2); }
-.peer-status.speaking { color: var(--accent); }
-
-.volume-bar {
-  width: 4px; height: 22px; background: rgba(34,197,94,0.15);
-  border-radius: 2px; overflow: hidden; flex-shrink: 0;
-}
-.volume-fill { width: 100%; background: var(--accent); transition: height 0.08s; }
-
-.empty {
-  flex: 1; display: flex; align-items: center; justify-content: center;
-  color: var(--text2); font-size: 13px; text-align: center; line-height: 1.6;
-}
-
 /* ── Join bar ── */
 .join-bar {
-  display: flex; gap: 8px;
-  padding: 12px; background: var(--card); border-radius: 14px;
-  border: 1px solid var(--border);
+  display: flex; gap: 8px; padding: 10px 14px;
+  background: var(--card); border-radius: 14px;
+  border: 1px solid var(--border); flex-shrink: 0;
 }
 .join-bar input {
   flex: 1; border: none; background: transparent;
@@ -111,7 +88,7 @@ body {
 }
 .join-bar input::placeholder { color: var(--text2); }
 .join-bar button {
-  padding: 8px 18px; border-radius: 10px; border: none;
+  padding: 7px 16px; border-radius: 9px; border: none;
   background: var(--accent); color: #000; font-weight: 590;
   font: 13px -apple-system, sans-serif; cursor: pointer;
 }
@@ -122,26 +99,23 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>语音聊天室</h1>
-    <div id="status-line" style="margin-top:4px">
-      <span class="status" id="status">输入房间名加入</span>
-    </div>
+    <h1>空间语音聊天室</h1>
+    <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
-  <div class="self-card" id="self-card" style="display:none">
-    <div class="self-avatar">🎙️</div>
+  <div class="map-wrap" id="map-wrap">
+    <canvas id="map"></canvas>
+    <div class="map-hint">拖拽自己移动 · 距离越近声音越大 · 左右声道分离</div>
+  </div>
+
+  <div class="self-row" id="self-row" style="display:none">
+    <div class="self-avatar" id="self-color">🎙️</div>
     <div class="self-info">
       <div class="self-name" id="self-name">我</div>
       <div class="self-mic on" id="self-mic">麦克风已开启</div>
     </div>
-    <div class="controls">
-      <button class="ctrl-btn mic" id="btn-mic">🎤</button>
-      <button class="ctrl-btn leave" id="btn-leave">🚪</button>
-    </div>
-  </div>
-
-  <div class="peers" id="peers">
-    <div class="empty" id="empty">输入房间名加入语音聊天<br>最多 7 人 · 端到端加密</div>
+    <button class="ctrl-btn mic" id="btn-mic">🎤</button>
+    <button class="ctrl-btn leave" id="btn-leave">🚪</button>
   </div>
 
   <div class="join-bar" id="join-bar">
@@ -153,39 +127,195 @@ body {
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script>
-// ═══════ 信令层: EMQX 公共 MQTT (房间发现) + PeerJS (P2P 音频) ═══════
-
-// 检查依赖是否加载
-window.addEventListener('error', function(e) {
-  if (e.target && e.target.tagName === 'SCRIPT') {
-    document.getElementById('status').textContent = 'CDN 加载失败 · 请检查网络';
-    document.getElementById('status').className = 'status error';
-  }
-});
-
-setTimeout(function() {
-  if (typeof Peer === 'undefined' || typeof mqtt === 'undefined') {
-    document.getElementById('status').textContent = '依赖加载失败 · 刷新重试';
-    document.getElementById('status').className = 'status error';
-  }
-}, 3000);
+// ═══════ 空间语音聊天室 ═══════
+// P2P 音频 (PeerJS) + 房间发现 (MQTT) + 空间音频 (Web Audio PannerNode)
+// 拖拽角色移动 → 距离衰减 → 左右声道分离
 
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
-let peer = null;        // PeerJS 实例
-let mqttClient = null;  // MQTT 客户端 (仅房间发现)
-let localStream = null;
-let micOn = true;
-let myPeerId = null;
-let currentRoom = null;
-const peers = new Map(); // peerId → { pc, mediaConnection, stream, analyser }
+const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
+const POS_INTERVAL = 200; // 位置广播间隔 (ms)
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
-  '#2563eb','#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8'];
+  '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
-function $(s) { return document.getElementById(s); }
+let peer = null, mqttClient = null, localStream = null;
+let audioCtx = null;  // 一个共享 AudioContext
+let micOn = true, myPeerId = null, currentRoom = null;
+const peers = new Map(); // peerId → { call, stream, source, panner, x, y, color }
 
-// ═══════ 加入房间 ═══════
+// ═══════ Canvas 地图 ═══════
+const canvas = document.getElementById('map');
+const ctx = canvas.getContext('2d');
+let myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
+let dragging = false, dragTarget = null;
+
+function resizeCanvas() {
+  const wrap = document.getElementById('map-wrap');
+  canvas.width = wrap.clientWidth * devicePixelRatio;
+  canvas.height = wrap.clientHeight * devicePixelRatio;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeCanvas();
+window.addEventListener('resize', () => { resizeCanvas(); drawMap(); });
+
+function pxToWorld(cx, cy) {
+  return {
+    x: (cx / canvas.width * devicePixelRatio) * ROOM_SIZE,
+    y: (cy / canvas.height * devicePixelRatio) * ROOM_SIZE
+  };
+}
+
+function drawMap() {
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+  ctx.clearRect(0, 0, w, h);
+
+  // 网格
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  const gs = 40;
+  for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  // 其他人
+  for (const [pid, p] of peers) {
+    const px = (p.x / ROOM_SIZE) * w;
+    const py = (p.y / ROOM_SIZE) * h;
+    drawAvatar(px, py, p.color || '#888', pid.slice(-6), false);
+  }
+
+  // 自己
+  const mx = (myPos.x / ROOM_SIZE) * w;
+  const my = (myPos.y / ROOM_SIZE) * h;
+  drawAvatar(mx, my, '#22c55e', '我', true);
+}
+
+function drawAvatar(x, y, color, label, isSelf) {
+  const r = isSelf ? 16 : 14;
+  // 光晕
+  const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
+  glow.addColorStop(0, color + '40');
+  glow.addColorStop(1, 'transparent');
+  ctx.fillStyle = glow;
+  ctx.beginPath(); ctx.arc(x, y, r * 2, 0, Math.PI * 2); ctx.fill();
+  // 身体
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  // 标签
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, x, y - r - 8);
+}
+
+function findClosestPeer(mx, my) {
+  const w = canvas.width / devicePixelRatio;
+  const h = canvas.height / devicePixelRatio;
+  let best = null, bestDist = 30; // 30px 内才算点中
+  for (const [pid, p] of peers) {
+    const px = (p.x / ROOM_SIZE) * w;
+    const py = (p.y / ROOM_SIZE) * h;
+    const dist = Math.hypot(mx - px, my - py);
+    if (dist < bestDist) { bestDist = dist; best = pid; }
+  }
+  return best;
+}
+
+// ── 拖拽/触摸 ──
+canvas.addEventListener('pointerdown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const target = findClosestPeer(mx, my);
+  if (target === null) {
+    // 点空地 → 移动自己
+    dragging = true; dragTarget = 'self';
+    const pos = pxToWorld(mx, my);
+    myPos.x = Math.max(10, Math.min(ROOM_SIZE - 10, pos.x));
+    myPos.y = Math.max(10, Math.min(ROOM_SIZE - 10, pos.y));
+    broadcastPosition();
+    updateSpatialAudio();
+    drawMap();
+  }
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging || dragTarget !== 'self') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const pos = pxToWorld(mx, my);
+  myPos.x = Math.max(10, Math.min(ROOM_SIZE - 10, pos.x));
+  myPos.y = Math.max(10, Math.min(ROOM_SIZE - 10, pos.y));
+  broadcastPosition();
+  updateSpatialAudio();
+  drawMap();
+});
+canvas.addEventListener('pointerup', () => { dragging = false; dragTarget = null; });
+canvas.addEventListener('pointerleave', () => { dragging = false; dragTarget = null; });
+
+// 键盘 WASD
+document.addEventListener('keydown', (e) => {
+  if (!currentRoom) return;
+  const step = 20;
+  switch (e.key.toLowerCase()) {
+    case 'w': case 'arrowup': myPos.y -= step; break;
+    case 's': case 'arrowdown': myPos.y += step; break;
+    case 'a': case 'arrowleft': myPos.x -= step; break;
+    case 'd': case 'arrowright': myPos.x += step; break;
+    default: return;
+  }
+  myPos.x = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.x));
+  myPos.y = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.y));
+  broadcastPosition();
+  updateSpatialAudio();
+  drawMap();
+});
+
+let lastPosBroadcast = 0;
+function broadcastPosition() {
+  const now = Date.now();
+  if (now - lastPosBroadcast < POS_INTERVAL) return;
+  lastPosBroadcast = now;
+  if (mqttClient && currentRoom) {
+    mqttClient.publish('voice-room/' + currentRoom + '/pos', JSON.stringify({
+      peerId: myPeerId, x: myPos.x, y: myPos.y
+    }));
+  }
+}
+
+// ═══════ 空间音频 ═══════
+function updateSpatialAudio() {
+  if (!audioCtx) return;
+  const listener = audioCtx.listener;
+  // 把自己的世界坐标映射到音频空间 (米)
+  const sx = (myPos.x / ROOM_SIZE) * 20 - 10;  // -10m ~ +10m
+  const sy = 0;
+  const sz = (myPos.y / ROOM_SIZE) * 20 - 10;
+  if (listener.positionX) {
+    listener.positionX.value = sx;
+    listener.positionY.value = sy;
+    listener.positionZ.value = sz;
+  } else {
+    listener.setPosition(sx, sy, sz);
+  }
+
+  for (const [pid, p] of peers) {
+    if (!p.panner) continue;
+    const tx = (p.x / ROOM_SIZE) * 20 - 10;
+    const tz = (p.y / ROOM_SIZE) * 20 - 10;
+    if (p.panner.positionX) {
+      p.panner.positionX.value = tx;
+      p.panner.positionZ.value = tz;
+    } else {
+      p.panner.setPosition(tx, 0, tz);
+    }
+  }
+}
+
+let posTimer = null;
+
+// ═══════ 加入/离开 ═══════
 async function joinRoom() {
   const room = $('room-input').value.trim();
   if (!room || currentRoom) return;
@@ -194,155 +324,131 @@ async function joinRoom() {
   setStatus('正在连接...');
   $('btn-join').disabled = true;
 
-  // 1. 获取麦克风
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
     setStatus('麦克风权限被拒绝', true);
-    $('btn-join').disabled = false;
-    currentRoom = null;
+    $('btn-join').disabled = false; currentRoom = null;
     return;
   }
 
-  // 2. 连接 MQTT (房间发现)
-  try {
-    mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
-  } catch(e) {
-    setStatus('MQTT 连接失败: ' + e.message, true);
-    leaveRoom();
-    return;
-  }
-  let mqttReady = false;
+  // AudioContext (用户手势期间创建, 规避 iOS 限制)
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  // MQTT 房间发现
+  mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
   mqttClient.on('connect', () => {
-    mqttReady = true;
     mqttClient.subscribe('voice-room/' + room + '/#');
   });
-  mqttClient.on('error', (e) => {
-    console.error('MQTT error:', e);
-    setStatus('信令服务器不可达 · 刷新重试', true);
-  });
-  mqttClient.on('close', () => {
-    if (!mqttReady) setStatus('信令连接超时 · 刷新重试', true);
-  });
+  mqttClient.on('error', (e) => { console.error('MQTT error', e); setStatus('信令不可达 · 刷新重试', true); });
 
-  // 3. 初始化 PeerJS (P2P 音频)
+  // PeerJS
   const peerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
-  peer = new Peer(peerId, { config: PEER_CONFIG });
   myPeerId = peerId;
+  peer = new Peer(peerId, { config: PEER_CONFIG });
 
   peer.on('open', () => {
     showSelf(room);
     setStatus('', false, true, room);
-    // iOS: 用户手势期间恢复 AudioContext
-    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
-    mqttClient.publish('voice-room/' + room + '/announce', peerId);
+    mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
+      peerId, x: myPos.x, y: myPos.y
+    }));
+    // 定时广播位置
+    posTimer = setInterval(broadcastPosition, POS_INTERVAL);
   });
 
-  peer.on('error', (e) => {
-    setStatus('连接失败: ' + e.type, true);
-    leaveRoom();
-  });
+  peer.on('error', (e) => { setStatus('连接失败: ' + e.type, true); leaveRoom(); });
 
-  // 有人打电话给我 → 接听
   peer.on('call', (call) => {
     call.answer(localStream);
     setupCall(call);
   });
 
-  // 4. 收到别人的 PeerJS ID → 打过去
-  mqttClient.on('message', (topic, message) => {
-    const remoteId = message.toString();
-    if (remoteId === myPeerId) return;        // 自己的消息, 忽略
-    if (peers.has(remoteId)) return;           // 已经连着了
-    const call = peer.call(remoteId, localStream);
-    setupCall(call);
+  // 收到他人的 announcement → 回拨
+  mqttClient.on('message', (topic, msg) => {
+    const parts = topic.split('/');
+    const type = parts[parts.length - 1];
+    if (type === 'announce') {
+      const data = JSON.parse(msg.toString());
+      if (data.peerId === myPeerId) return;
+      if (peers.has(data.peerId)) return;
+      if (!data.x) data.x = ROOM_SIZE/2; if (!data.y) data.y = ROOM_SIZE/2; // 向后兼容
+      const call = peer.call(data.peerId, localStream);
+      const info = peers.get(data.peerId) || {};
+      info.x = data.x; info.y = data.y;
+      peers.set(data.peerId, info);
+      setupCall(call);
+      drawMap();
+    } else if (type === 'pos') {
+      const data = JSON.parse(msg.toString());
+      const p = peers.get(data.peerId);
+      if (p) { p.x = data.x; p.y = data.y; updateSpatialAudio(); drawMap(); }
+    }
   });
+
+  // 初始随机位置
+  myPos.x = 100 + Math.random() * (ROOM_SIZE - 200);
+  myPos.y = 100 + Math.random() * (ROOM_SIZE - 200);
+  drawMap();
 }
 
-let audioContext = null;  // 共享 AudioContext (Web Audio API 比 <audio> 蓝牙兼容性好)
-
-// ═══════ WebRTC 通话 ═══════
 function setupCall(call) {
   const pid = call.peer;
   if (peers.has(pid)) {
-    try { peers.get(pid).mediaConnection.close(); } catch(e) {}
+    if (peers.get(pid).stream) return; // 已经 setup 过了
   }
 
-  call.on('stream', (remoteStream) => {
-    // Web Audio API 代替 <audio> 元素 —— 蓝牙耳机兼容性更好
-    if (!audioContext) audioContext = new AudioContext();
-    if (audioContext.state === 'suspended') audioContext.resume();
-    const source = audioContext.createMediaStreamSource(remoteStream);
-    source.connect(audioContext.destination);
+  const info = peers.get(pid) || { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
+  info.call = call;
+  info.color = COLORS[peers.size % COLORS.length];
 
-    const data = { mediaConnection: call, stream: remoteStream, source, analyser: null };
-    peers.set(pid, data);
-    addPeerCard(pid);
-    setupVolumeMeter(pid, remoteStream, data);
+  call.on('stream', (remoteStream) => {
+    // 空间音频链路: stream → source → panner → destination
+    const source = audioCtx.createMediaStreamSource(remoteStream);
+    const panner = audioCtx.createPanner();
+    // HRTF = 真实头部传输函数 → 自动距离衰减 + 左右声道分离 + 前后差异
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+    panner.refDistance = 2;     // 2m 内满音量
+    panner.maxDistance = 18;    // 18m 外听不见
+    panner.rolloffFactor = 1.5;
+    source.connect(panner);
+    panner.connect(audioCtx.destination);
+
+    info.stream = remoteStream;
+    info.source = source;
+    info.panner = panner;
+    peers.set(pid, info);
+    updateSpatialAudio();
+    drawMap();
   });
 
   call.on('close', () => removePeer(pid));
   call.on('error', () => removePeer(pid));
-}
-
-// ═══════ 音量检测 ═══════
-function setupVolumeMeter(pid, stream, data) {
-  const ctx = new AudioContext();
-  const src = ctx.createMediaStreamSource(stream);
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 256;
-  src.connect(analyser);
-  data.analyser = analyser;
-
-  const buf = new Uint8Array(analyser.frequencyBinCount);
-  const tick = () => {
-    if (!peers.has(pid)) return;
-    analyser.getByteFrequencyData(buf);
-    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-    const pct = Math.min(100, Math.round((avg / 128) * 100));
-    const fill = document.getElementById('vol-' + pid);
-    const status = document.getElementById('st-' + pid);
-    if (fill) fill.style.height = pct + '%';
-    if (status) {
-      status.className = 'peer-status' + (avg > 12 ? ' speaking' : '');
-      status.textContent = avg > 12 ? '正在说话' : '在线';
-    }
-    requestAnimationFrame(tick);
-  };
-  tick();
-}
-
-// ═══════ UI ═══════
-function showSelf(room) {
-  $('self-card').style.display = 'flex';
-  $('empty').style.display = 'none';
-  $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
-}
-
-function addPeerCard(pid) {
-  if (document.getElementById('peer-' + pid)) return;
-  $('empty').style.display = 'none';
-  const color = COLORS[peers.size % COLORS.length];
-  const card = document.createElement('div');
-  card.className = 'peer-card';
-  card.id = 'peer-' + pid;
-  card.innerHTML = `
-    <div class="peer-avatar" style="background:${color}">👤</div>
-    <div class="peer-info">
-      <div class="peer-name">${pid.slice(-10)}</div>
-      <div class="peer-status" id="st-${pid}">在线</div>
-    </div>
-    <div class="volume-bar"><div class="volume-fill" id="vol-${pid}" style="height:0%"></div></div>
-  `;
-  $('peers').appendChild(card);
+  peers.set(pid, info);
 }
 
 function removePeer(pid) {
   const p = peers.get(pid);
-  if (p) { try { p.mediaConnection.close(); } catch(e) {} peers.delete(pid); }
-  const card = document.getElementById('peer-' + pid);
-  if (card) card.remove();
-  if (peers.size === 0) $('empty').style.display = '';
+  if (p) {
+    try { p.source?.disconnect(); } catch(e) {}
+    try { p.panner?.disconnect(); } catch(e) {}
+    try { p.call?.close(); } catch(e) {}
+    peers.delete(pid);
+  }
+  drawMap();
+}
+
+function updateSpatialAudioNow() { updateSpatialAudio(); drawMap(); }
+
+// ═══════ UI ═══════
+function $(s) { return document.getElementById(s); }
+
+function showSelf(room) {
+  $('self-row').style.display = 'flex';
+  $('self-color').style.background = '#22c55e';
+  $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
 
 function toggleMic() {
@@ -366,31 +472,32 @@ function setStatus(text, isError, isOnline, room) {
 }
 
 function leaveRoom() {
-  for (const [, p] of peers) try { p.mediaConnection.close(); } catch(e) {}
+  for (const [, p] of peers) {
+    try { p.source?.disconnect(); } catch(e) {}
+    try { p.panner?.disconnect(); } catch(e) {}
+    try { p.call?.close(); } catch(e) {}
+  }
   peers.clear();
   if (peer) { peer.destroy(); peer = null; }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
-  if (audioContext) { audioContext.close(); audioContext = null; }
+  if (posTimer) { clearInterval(posTimer); posTimer = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-  myPeerId = null;
-  currentRoom = null;
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
-  document.querySelectorAll('.peer-card').forEach(c => c.remove());
-  $('self-card').style.display = 'none';
-  $('empty').style.display = '';
+  $('self-row').style.display = 'none';
   $('self-name').textContent = '我';
-  $('self-mic').className = 'self-mic on';
-  $('self-mic').textContent = '麦克风已开启';
+  $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
   $('btn-mic').classList.remove('off'); $('btn-mic').textContent = '🎤';
   $('btn-join').disabled = false;
-  micOn = true;
   setStatus('输入房间名加入');
+  drawMap();
 }
 
 // ═══════ 事件 ═══════
 $('btn-join').addEventListener('click', joinRoom);
 $('btn-mic').addEventListener('click', toggleMic);
-$('btn-leave').addEventListener('click', leaveRoom);
+$('btn-leave').addEventListener('click', () => { if (confirm('退出房间？')) leaveRoom(); });
 $('room-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') joinRoom();
 });
