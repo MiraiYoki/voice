@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>语音聊天室</title>
+<style>
+:root {
+  --bg: #0f0f11; --card: #1a1a1f; --text: #e4e4e7;
+  --text2: #71717a; --accent: #22c55e; --danger: #ef4444;
+  --muted: #f59e0b; --border: rgba(255,255,255,0.06);
+  --radius: 14px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+  background: var(--bg); color: var(--text);
+  height: 100dvh; display: flex; justify-content: center;
+  -webkit-font-smoothing: antialiased;
+}
+.app {
+  width: 100%; max-width: 520px;
+  height: 100dvh; display: flex; flex-direction: column;
+  padding: 20px; gap: 16px;
+}
+
+/* ── Header ── */
+.header { text-align: center; padding: 8px 0; }
+.header h1 { font-size: 20px; font-weight: 590; letter-spacing: -0.02em; }
+.header .status { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.status.connected { color: var(--accent); }
+
+/* ── Self card ── */
+.self-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 16px; display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--border);
+}
+.self-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.self-info { flex: 1; }
+.self-name { font-size: 15px; font-weight: 590; }
+.self-mic { font-size: 12px; color: var(--text2); }
+.self-mic.on { color: var(--accent); }
+.self-mic.off { color: var(--danger); }
+
+.controls { display: flex; gap: 8px; }
+.ctrl-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: none;
+  font-size: 16px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center;
+}
+.ctrl-btn.mic { background: rgba(34,197,94,0.15); color: var(--accent); }
+.ctrl-btn.mic.off { background: rgba(239,68,68,0.15); color: var(--danger); }
+.ctrl-btn.deafen { background: rgba(245,158,11,0.15); color: var(--muted); }
+.ctrl-btn.deafen.off { background: rgba(245,158,11,0.25); }
+
+/* ── Peers ── */
+.peers { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.peer-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--border);
+  animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.peer-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.peer-info { flex: 1; }
+.peer-name { font-size: 14px; font-weight: 510; }
+.peer-status { font-size: 11px; color: var(--text2); }
+.peer-status.speaking { color: var(--accent); }
+
+.volume-bar {
+  width: 4px; height: 20px; background: rgba(34,197,94,0.2);
+  border-radius: 2px; overflow: hidden; flex-shrink: 0;
+}
+.volume-inner {
+  width: 100%; background: var(--accent);
+  transition: height 0.1s;
+}
+
+/* ── Bottom ── */
+.empty {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  color: var(--text2); font-size: 13px; text-align: center; line-height: 1.6;
+}
+.join-bar {
+  display: flex; gap: 8px;
+  padding: 12px; background: var(--card); border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.join-bar input {
+  flex: 1; border: none; background: transparent;
+  color: var(--text); font: 14px -apple-system, sans-serif;
+  outline: none; letter-spacing: -0.01em;
+}
+.join-bar input::placeholder { color: var(--text2); }
+.join-bar button {
+  padding: 8px 18px; border-radius: 10px; border: none;
+  background: var(--accent); color: #000; font-weight: 590;
+  font: 13px -apple-system, sans-serif; cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>语音聊天室</h1>
+    <div class="status" id="status">未连接</div>
+  </div>
+
+  <div class="self-card" id="self-card" style="display:none">
+    <div class="self-avatar">🎙️</div>
+    <div class="self-info">
+      <div class="self-name" id="self-name">我</div>
+      <div class="self-mic on" id="self-mic">麦克风已开启</div>
+    </div>
+    <div class="controls">
+      <button class="ctrl-btn mic" id="btn-mic" title="静音">🎤</button>
+    </div>
+  </div>
+
+  <div class="peers" id="peers">
+    <div class="empty" id="empty">输入房间名加入语音聊天<br>最多 7 人 · P2P 加密</div>
+  </div>
+
+  <div class="join-bar">
+    <input id="room-input" placeholder="输入房间名..." autofocus>
+    <button id="btn-join">加入</button>
+  </div>
+</div>
+
+<script>
+// ═══════ 配置 ═══════
+// 改成你部署的信令服务器地址
+const SIGNAL_URL = 'ws://localhost:8787';
+// 部署到 Workers 后改成: 'wss://your-worker.workers.dev'
+
+const PEER_CONFIG = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
+
+// ═══════ 状态 ═══════
+let ws = null;
+let localStream = null;
+let peerId = null;
+let audioCtx = null;
+const peers = new Map(); // peerId → { pc, stream, analyser, volume: 0 }
+let micOn = true;
+
+// ═══════ 信令 ═══════
+function connect(room) {
+  setStatus('正在连接...');
+  ws = new WebSocket(SIGNAL_URL);
+
+  ws.onopen = () => setStatus('已连接 · 房间: ' + room, true);
+  ws.onclose = () => { setStatus('断开连接'); cleanupAll(); };
+  ws.onerror = (e) => { console.error('WebSocket error', e); setStatus('连接失败 · 确认服务器已启动 (node server.js)'); };
+
+  ws.onmessage = async (e) => {
+    const msg = JSON.parse(e.data);
+    switch (msg.type) {
+      case 'welcome':
+        peerId = msg.peerId;
+        document.getElementById('self-name').textContent = '我 (' + peerId + ')';
+        document.getElementById('self-card').style.display = 'flex';
+        document.getElementById('empty').style.display = 'none';
+        await startMic();
+        break;
+
+      case 'peer-list':
+        // 新人收到已在线成员列表 → 等他们给自己发 offer
+        break;
+
+      case 'peer-joined':
+        // 有人加入 → 已有成员向新人发 offer（mesh 模式）
+        await handleNewPeer(msg.peerId, true);
+        break;
+
+      case 'offer':
+        await handleOffer(msg.from, msg.data);
+        break;
+
+      case 'answer':
+        await handleAnswer(msg.from, msg.data);
+        break;
+
+      case 'ice-candidate':
+        await handleIce(msg.from, msg.data);
+        break;
+
+      case 'peer-left':
+        removePeer(msg.peerId);
+        break;
+    }
+  };
+}
+
+// ═══════ 麦克风 ═══════
+async function startMic() {
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch(e) {
+    console.error('麦克风错误', e);
+    setStatus('麦克风权限被拒绝或浏览器不支持');
+    return;
+  }
+  // 如果已有 peer，把自己的 audio track 加进去
+  for (const [id, p] of peers) {
+    const track = localStream.getAudioTracks()[0];
+    p.pc.addTrack(track, localStream);
+    const pc = p.pc;
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'offer', to: id, data: offer }));
+  }
+}
+
+function toggleMic() {
+  if (!localStream) return;
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  const btn = document.getElementById('btn-mic');
+  const label = document.getElementById('self-mic');
+  if (micOn) {
+    btn.classList.remove('off'); btn.textContent = '🎤';
+    label.className = 'self-mic on'; label.textContent = '麦克风已开启';
+  } else {
+    btn.classList.add('off'); btn.textContent = '🔇';
+    label.className = 'self-mic off'; label.textContent = '已静音';
+  }
+}
+
+// ═══════ WebRTC ═══════
+async function handleNewPeer(id, createOffer) {
+  if (peers.has(id)) return;
+
+  const pc = new RTCPeerConnection(PEER_CONFIG);
+  peers.set(id, { pc, analyser: null, volume: 0 });
+
+  // 收音频流
+  pc.ontrack = (e) => {
+    const audio = new Audio();
+    audio.srcObject = e.streams[0];
+    audio.autoplay = true;
+    setupVolumeMeter(id, e.streams[0]);
+  };
+
+  // ICE candidate
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      ws.send(JSON.stringify({ type: 'ice-candidate', to: id, data: e.candidate }));
+    }
+  };
+
+  // 添加本地音频
+  if (localStream) {
+    localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  }
+
+  addPeerCard(id);
+
+  // 已有成员向新人发 offer
+  if (createOffer) {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'offer', to: id, data: offer }));
+  }
+}
+
+async function handleOffer(from, data) {
+  await handleNewPeer(from, false);
+  const pc = peers.get(from).pc;
+  await pc.setRemoteDescription(new RTCSessionDescription(data));
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  ws.send(JSON.stringify({ type: 'answer', to: from, data: answer }));
+}
+
+async function handleAnswer(from, data) {
+  const p = peers.get(from);
+  if (!p) return;
+  await p.pc.setRemoteDescription(new RTCSessionDescription(data));
+}
+
+async function handleIce(from, data) {
+  const p = peers.get(from);
+  if (!p) return;
+  await p.pc.addIceCandidate(new RTCIceCandidate(data));
+}
+
+function removePeer(id) {
+  const p = peers.get(id);
+  if (p) { p.pc.close(); peers.delete(id); }
+  const card = document.getElementById('peer-' + id);
+  if (card) card.remove();
+  if (peers.size === 0) document.getElementById('empty').style.display = '';
+}
+
+function cleanupAll() {
+  for (const [id, p] of peers) { p.pc.close(); }
+  peers.clear();
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+  document.getElementById('self-card').style.display = 'none';
+  document.querySelectorAll('.peer-card').forEach(c => c.remove());
+  document.getElementById('empty').style.display = '';
+}
+
+// ═══════ 音量检测 ═══════
+function setupVolumeMeter(id, stream) {
+  if (!audioCtx) audioCtx = new AudioContext();
+  const src = audioCtx.createMediaStreamSource(stream);
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  src.connect(analyser);
+
+  const p = peers.get(id);
+  if (!p) return;
+  p.analyser = analyser;
+
+  // 定期读取音量
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  const tick = () => {
+    if (!peers.has(id)) return;
+    analyser.getByteFrequencyData(buf);
+    const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
+    p.volume = avg;
+    updateVolumeBar(id, avg);
+    requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function updateVolumeBar(id, vol) {
+  const bar = document.getElementById('vol-' + id);
+  const status = document.getElementById('status-' + id);
+  if (!bar) return;
+  const pct = Math.min(100, Math.round((vol / 128) * 100));
+  bar.querySelector('.volume-inner').style.height = pct + '%';
+  if (status) {
+    status.className = 'peer-status' + (vol > 15 ? ' speaking' : '');
+    status.textContent = vol > 15 ? '正在说话' : '在线';
+  }
+}
+
+// ═══════ UI ═══════
+const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04','#2563eb',
+  '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8'];
+function addPeerCard(id) {
+  const card = document.createElement('div');
+  card.className = 'peer-card';
+  card.id = 'peer-' + id;
+  const color = COLORS[peers.size % COLORS.length];
+  card.innerHTML = `
+    <div class="peer-avatar" style="background:${color}">👤</div>
+    <div class="peer-info">
+      <div class="peer-name">${id}</div>
+      <div class="peer-status" id="status-${id}">在线</div>
+    </div>
+    <div class="volume-bar" id="vol-${id}"><div class="volume-inner" style="height:0%"></div></div>
+  `;
+  document.getElementById('peers').appendChild(card);
+}
+
+function setStatus(text, ok) {
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status' + (ok ? ' connected' : '');
+}
+
+// ═══════ 事件 ═══════
+document.getElementById('btn-join').addEventListener('click', () => {
+  const room = document.getElementById('room-input').value.trim();
+  if (room) connect(room);
+});
+document.getElementById('btn-mic').addEventListener('click', toggleMic);
+document.getElementById('room-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('btn-join').click();
+});
+</script>
+</body>
+</html>
