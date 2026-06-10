@@ -598,7 +598,7 @@ async function joinRoom() {
       info.x = data.x; info.y = data.y;
       peers.set(data.peerId, info);
       setupCall(call);
-      drawMap();
+      updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
@@ -690,7 +690,7 @@ function removePeer(pid) {
     try { p.call?.close(); } catch(e) {}
     peers.delete(pid);
   }
-  drawMap();
+  updateRoomCount(); drawMap();
 }
 
 function updateSpatialAudioNow() { updateSpatialAudio(); drawMap(); }
@@ -791,6 +791,16 @@ function updateMicUI(on) {
   btn.classList.toggle('off', !on); btn.textContent = on ? '🎤' : '🎧';
   label.className = 'self-mic ' + (on ? 'on' : 'off');
   label.textContent = on ? '🎤 发言 · 单声道' : '🎧 收听 · 立体声';
+}
+
+function updateRoomCount() {
+  if (!currentRoom) return;
+  const count = peers.size + 1;
+  const el = $('status');
+  const badge = el.querySelector('.room-badge');
+  if (badge) {
+    badge.innerHTML = '<span class="dot"></span>' + currentRoom + ' · ' + count + '人';
+  }
 }
 
 function setStatus(text, isError, isOnline, room) {
