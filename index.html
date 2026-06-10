@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v29</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v30</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -718,59 +718,12 @@ function getActiveStream() {
   return _cachedSilent;
 }
 
-// ── 推讲: 关麦立体声收听 ⇄ 开麦单声道发言 · 全程蓝牙 ──
-async function toggleMic() {
-  if (localStream) {
-    // 【关麦】释放 getUserMedia → 销毁 AudioContext → 用静默流重建 → 立体声
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-    if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
-    _cachedSilent = null;
-    rebuildAudioPipeline();
-    updateMicUI(false);
-  } else {
-    // 【开麦】先关 AudioContext → getUserMedia 在最前 → 重建链路
-    if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
-    _cachedSilent = null;
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch(e) { showToast('麦克风获取失败'); return; }
-    rebuildAudioPipeline();
-    updateMicUI(true);
-  }
-}
-
-function rebuildAudioPipeline() {
-  audioCtx = new AudioContext();
-  audioCtx.resume();
-  for (const [pid, p] of peers) {
-    if (!p.stream) continue;
-    try { p.source?.disconnect(); p.stereoPan?.disconnect(); p.panner?.disconnect(); p.gainNode?.disconnect(); } catch(e) {}
-    p.source = audioCtx.createMediaStreamSource(p.stream);
-    p.stereoPan = audioCtx.createStereoPanner();
-    p.panner = audioCtx.createPanner();
-    p.gainNode = audioCtx.createGain();
-    p.panner.panningModel = 'HRTF';
-    p.panner.distanceModel = 'inverse';
-    p.panner.refDistance = 2; p.panner.maxDistance = 18; p.panner.rolloffFactor = 1.5;
-    p.source.connect(p.stereoPan);
-    p.stereoPan.connect(p.panner);
-    p.panner.connect(p.gainNode);
-    const volA = audioCtx.createAnalyser();
-    volA.fftSize = 256;
-    p.gainNode.connect(volA);
-    volA.connect(audioCtx.destination);
-    p._volBuf = new Uint8Array(volA.frequencyBinCount);
-    const tick = () => {
-      if (!peers.has(pid)) return;
-      volA.getByteFrequencyData(p._volBuf);
-      const avg = p._volBuf.reduce((a,b)=>a+b,0) / p._volBuf.length;
-      p.smoothedVol = p.smoothedVol * 0.6 + avg * 0.4;
-      requestAnimationFrame(tick);
-    };
-    tick();
-  }
-  updateSpatialAudio();
+// ── 稳定静音: track.enabled 开关 · 不释放麦克风 · 不重建链路 ──
+function toggleMic() {
+  if (!localStream) return;
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  updateMicUI(micOn);
 }
 
 function updateMicUI(on) {
