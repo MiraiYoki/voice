@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v14</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v15</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -126,7 +126,7 @@ body {
     <div class="map-hint">拖拽自己移动 · 距离越近声音越大 · 左右声道分离</div>
   </div>
 
-  <div class="spatial-select" id="spatial-select" style="display:none">
+  <div class="spatial-select" id="spatial-select">
     <button data-mode="hrtf" class="active">真实</button>
     <button data-mode="equal">均衡</button>
     <button data-mode="stereo">声像</button>
@@ -691,7 +691,7 @@ function $(s) { return document.getElementById(s); }
 
 function showSelf(room) {
   $('self-row').style.display = 'flex';
-  $('spatial-select').style.display = 'flex';
+  // spatial-select 始终可见
   $('self-color').style.background = '#22c55e';
   $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
@@ -735,7 +735,7 @@ function leaveRoom() {
   myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
   $('self-row').style.display = 'none';
-  $('spatial-select').style.display = 'none';
+  // 始终可见
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
   $('btn-mic').classList.remove('off'); $('btn-mic').textContent = '🎤';
