@@ -102,7 +102,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v4</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v7</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -137,7 +137,7 @@ body {
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
-const POS_INTERVAL = 200; // 位置广播间隔 (ms)
+const POS_INTERVAL = 30; // 位置广播间隔 (ms)
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
