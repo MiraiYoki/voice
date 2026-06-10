@@ -412,10 +412,17 @@ async function joinRoom() {
     if (type === 'announce') {
       const data = JSON.parse(msg.toString());
       if (data.peerId === myPeerId) return;
-      if (peers.has(data.peerId)) return;
-      if (!data.x) data.x = ROOM_SIZE/2; if (!data.y) data.y = ROOM_SIZE/2; // 向后兼容
+      if (!data.x) data.x = ROOM_SIZE/2; if (!data.y) data.y = ROOM_SIZE/2;
+      // 如果已有这个 peer（呼叫先于 announce 到达）→ 只更新位置
+      if (peers.has(data.peerId)) {
+        const p = peers.get(data.peerId);
+        p.x = data.x; p.y = data.y;
+        updateSpatialAudio(); drawMap();
+        return;
+      }
+      // 新 peer → 呼叫 + 存储
       const call = peer.call(data.peerId, localStream);
-      const info = peers.get(data.peerId) || {};
+      const info = {};
       info.x = data.x; info.y = data.y;
       peers.set(data.peerId, info);
       setupCall(call);
