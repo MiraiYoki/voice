@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v38</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v39</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -754,6 +754,7 @@ async function rebuildAudio() {
 // ── 推讲: 关麦立体声蓝牙 ⇄ 开麦单声道蓝牙 ──
 let micBusy = false;
 async function toggleMic() {
+  console.log('toggleMic called, micBusy=', micBusy, 'localStream=', !!localStream);
   if (micBusy) return;
   micBusy = true;
   try {
@@ -765,9 +766,9 @@ async function toggleMic() {
     await rebuildAudio();
     updateMicUI(false);
   } else {
-    // 开麦: 等待旧 AudioContext 完全关闭 → getUserMedia 在最前 → 重建 (通话模式 → 单声道 HFP)
+    // 开麦: 先重置音频会话 → getUserMedia → 切通话模式
+    if (navigator.audioSession) { navigator.audioSession.type = 'auto'; }
     if (audioCtx) { await audioCtx.close(); audioCtx = null; }
-    // 额外等一帧确保系统释放音频会话
     await new Promise(r => setTimeout(r, 150));
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     if (navigator.audioSession) { navigator.audioSession.type = 'play-and-record'; }
