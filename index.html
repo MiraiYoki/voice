@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v24</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v25</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -536,17 +536,14 @@ async function joinRoom() {
   setStatus('正在连接...');
   $('btn-join').disabled = true;
 
-  // 先创建 AudioContext 抢占立体声管线 (在 getUserMedia 切通话模式之前)
+  // 先创建 AudioContext (在 getUserMedia 之前, 抢占立体声管线)
   if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 48000 });
   if (audioCtx.state === 'suspended') audioCtx.resume();
 
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: { ideal: 2 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false, sampleRate: 48000 } });
-  } catch (e) {
-    setStatus('麦克风权限被拒绝', true);
-    $('btn-join').disabled = false; currentRoom = null;
-    return;
-  }
+  // 默认以立体声收听模式进入 — 不获取麦克风
+  localStream = null;
+  micOn = false;
+  updateMicUI(false);
 
   // AudioContext (用户手势期间创建, 规避 iOS 限制)
   if (!audioCtx) audioCtx = new AudioContext();
@@ -710,30 +707,52 @@ function showSelf(room) {
   $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
 
+let _cachedSilent = null;
 function getActiveStream() {
-  return localStream;
+  if (localStream) return localStream;
+  if (_cachedSilent) return _cachedSilent;
+  if (!audioCtx) audioCtx = new AudioContext();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  const dst = audioCtx.createMediaStreamDestination();
+  gain.gain.value = 0;
+  osc.type = 'sine'; osc.frequency.value = 440;
+  osc.connect(gain); gain.connect(dst);
+  osc.start();
+  _cachedSilent = dst.stream;
+  return _cachedSilent;
 }
 
-// ── 普通静音 ──
-function toggleMic() {
-  if (!localStream) return;
-  micOn = !micOn;
-  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
-  updateMicUI(micOn);
-}
-
-// ── 立体声收听模式 (实验: 关麦释放getUserMedia) ──
-let stereoListenMode = false;
-function toggleStereoMode() {
-  stereoListenMode = !stereoListenMode;
-  if (stereoListenMode) {
-    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-    updateMicUI(false);
+// ── 推讲: 关麦=立体声收听 / 开麦=单声道发言 ──
+async function toggleMic() {
+  if (localStream) {
+    // 关麦: 释放 getUserMedia → 恢复立体声
+    const silent = getActiveStream(); // silent stream
+    const silentTrack = silent.getAudioTracks()[0];
+    for (const [pid, p] of peers) {
+      if (p.call && p.call.peerConnection) {
+        p.call.peerConnection.getSenders().forEach(s => {
+          if (s.track?.kind === 'audio') { try { s.replaceTrack(silentTrack); } catch(e) {} }
+        });
+      }
+    }
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
   } else {
-    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } })
-      .then(s => { localStream = s; updateMicUI(true); })
-      .catch(e => { showToast('麦克风恢复失败'); });
+    // 开麦: 获取麦克风
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const realTrack = localStream.getAudioTracks()[0];
+      for (const [pid, p] of peers) {
+        if (p.call && p.call.peerConnection) {
+          p.call.peerConnection.getSenders().forEach(s => {
+            if (s.track?.kind === 'audio') { try { s.replaceTrack(realTrack); } catch(e) {} }
+          });
+        }
+      }
+    } catch(e) { showToast('麦克风获取失败'); return; }
   }
+  updateMicUI(!!localStream);
 }
 
 function updateMicUI(on) {
