@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v33</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v34</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -716,10 +716,10 @@ function replaceSenderTracks(track) {
 }
 
 // ── 销毁旧 AudioContext, 用远端流重建全部接收链路 ──
-function rebuildAudio() {
-  if (audioCtx) { try { audioCtx.close(); } catch(e) {} }
+async function rebuildAudio() {
+  if (audioCtx) { try { await audioCtx.close(); } catch(e) {} }
   audioCtx = new AudioContext();
-  audioCtx.resume();
+  await audioCtx.resume();
   for (const [pid, p] of peers) {
     if (!p.stream) continue;
     try { p.source?.disconnect(); p.stereoPan?.disconnect(); p.panner?.disconnect(); p.gainNode?.disconnect(); } catch(e) {}
@@ -756,14 +756,15 @@ async function toggleMic() {
     // 关麦: 释放 getUserMedia → 重建 AudioContext (音乐模式 → 立体声 A2DP)
     localStream.getTracks().forEach(t => t.stop());
     localStream = null;
-    rebuildAudio();
+    await rebuildAudio();
     updateMicUI(false);
   } else {
-    // 开麦: 先灭 AudioContext → getUserMedia 在最前 (通话模式 → 单声道 HFP)
-    try { audioCtx?.close(); } catch(e) {}
-    audioCtx = null;
+    // 开麦: 等待旧 AudioContext 完全关闭 → getUserMedia 在最前 → 重建 (通话模式 → 单声道 HFP)
+    if (audioCtx) { await audioCtx.close(); audioCtx = null; }
+    // 额外等一帧确保系统释放音频会话
+    await new Promise(r => setTimeout(r, 150));
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    rebuildAudio(); // 重建 AudioContext (在 getUserMedia 之后)
+    rebuildAudio();
     replaceSenderTracks(localStream.getAudioTracks()[0]);
     updateMicUI(true);
   }
