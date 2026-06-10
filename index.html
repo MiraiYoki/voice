@@ -15,17 +15,19 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
   background: var(--bg); color: var(--text);
-  height: 100dvh; display: flex; justify-content: center;
+  height: 100dvh; height: 100vh;
+  display: flex; justify-content: center;
   -webkit-font-smoothing: antialiased; overflow: hidden;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
 }
 .app {
-  width: 100%; max-width: 520px; height: 100dvh;
-  display: flex; flex-direction: column; padding: 12px; gap: 8px;
+  width: 100%; max-width: 520px; height: 100%;
+  display: flex; flex-direction: column; padding: 8px; gap: 6px;
 }
 
 /* ── Header ── */
-.header { text-align: center; padding: 4px 0; flex-shrink: 0; }
-.header h1 { font-size: 18px; font-weight: 590; letter-spacing: -0.02em; }
+.header { text-align: center; padding: 2px 0; flex-shrink: 0; }
+.header h1 { font-size: 16px; font-weight: 590; letter-spacing: -0.02em; margin: 0; }
 .header .status { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .status.online { color: var(--accent); }
 .status.error { color: var(--danger); }
@@ -38,7 +40,7 @@ body {
 
 /* ── Map ── */
 .map-wrap {
-  flex: 1; min-height: 200px;
+  flex: 1; min-height: 120px;
   background: var(--card); border-radius: 14px;
   border: 1px solid var(--border); overflow: hidden; position: relative;
 }
@@ -53,7 +55,7 @@ body {
 /* ── Self card ── */
 .self-row {
   background: var(--card); border-radius: 14px;
-  padding: 12px 16px; display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; display: flex; align-items: center; gap: 10px;
   border: 1px solid var(--border); flex-shrink: 0;
 }
 .self-avatar {
@@ -78,7 +80,7 @@ body {
 
 /* ── Join bar ── */
 .join-bar {
-  display: flex; gap: 8px; padding: 10px 14px;
+  display: flex; gap: 8px; padding: 8px 14px;
   background: var(--card); border-radius: 14px;
   border: 1px solid var(--border); flex-shrink: 0;
 }
