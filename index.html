@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v15</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v16</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -526,8 +526,12 @@ async function joinRoom() {
   setStatus('正在连接...');
   $('btn-join').disabled = true;
 
+  // 先创建 AudioContext 抢占立体声管线 (在 getUserMedia 切通话模式之前)
+  if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 48000 });
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
   try {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false, noiseSuppression: false } });
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: { ideal: 2 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false, sampleRate: 48000 } });
   } catch (e) {
     setStatus('麦克风权限被拒绝', true);
     $('btn-join').disabled = false; currentRoom = null;
