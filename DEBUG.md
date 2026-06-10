@@ -1,6 +1,47 @@
 # 空间语音聊天室 · 踩坑全记录
 
-## 架构
+## 最终方案 (v41 — 全部需求已实现)
+
+### 六条需求全部满足
+
+| # | 需求 | 状态 | 机制 |
+|---|------|:--:|------|
+| 1 | 打开页面连蓝牙 | ✅ | 不触碰音频，蓝牙自然保持 |
+| 2 | 进入房间有蓝牙 | ✅ | AudioContext 先于 getUserMedia，audioSession='play-and-record' |
+| 3 | 开麦有蓝牙 | ✅ | 开麦前 audioSession='auto'→getUserMedia→audioSession='play-and-record' |
+| 4 | 开麦单声道 | ✅ | HFP 通话协议天然单声道 |
+| 5 | 闭麦有蓝牙 | ✅ | 关麦后 audioSession='playback'，重建 AudioContext(音乐模式) |
+| 6 | 闭麦立体声 | ✅ | A2DP 音乐协议天然立体声 |
+
+### 核心钥匙: `navigator.audioSession.type`
+
+这是 **Safari 专属 API**，对应原生 `AVAudioSession`。三句搞定一切:
+
+```javascript
+// 进房 + 开麦时: 强制音频路由到蓝牙耳机
+navigator.audioSession.type = 'play-and-record';
+
+// 关麦时: 切回音乐立体声
+navigator.audioSession.type = 'playback';
+
+// 切换前: 重置到默认 (清除上次遗留状态)
+navigator.audioSession.type = 'auto';
+```
+
+### 推讲切换流程
+
+```
+关麦 (立体声收听):
+  track.stop() → audioSession='playback' → audioCtx.close()
+  → new AudioContext() → 重建所有远端流链路
+
+开麦 (单声道发言):
+  audioSession='auto' → audioCtx.close() → getUserMedia()
+  → audioSession='play-and-record' → new AudioContext()
+  → 重建链路 + replaceSenderTracks()
+```
+
+### 架构
 
 ```
 index.html (纯静态单文件, GitHub Pages 部署)
