@@ -352,7 +352,8 @@ function broadcastPosition() {
 }
 
 // ═══════ 空间音频 · 5+1 算法 ═══════
-// spatialMode initialized above
+let spatialMode = 'hrtf', duckingOn = true;
+const DUCK_RATIO = 0.3;
 let testOscL = null, testOscR = null, testGainL = null, testGainR = null, testMerger = null, testTimer = null;
 
 function startStereoTest() {
@@ -387,7 +388,31 @@ function stopStereoTest() {
   testOscL = testOscR = testGainL = testGainR = testMerger = null;
 }
 
-// spatialMode initialized above
+// ── 自动避让 (Ducking) ──
+let duckTimer = null;
+function startDucking() {
+  if (duckTimer) return;
+  duckTimer = setInterval(() => {
+    if (!duckingOn) return;
+    let loudest = null, loudestVol = 0;
+    // 找最响的人
+    for (const [pid, p] of peers) {
+      const vol = p.smoothedVol || 0;
+      if (vol > loudestVol) { loudestVol = vol; loudest = p; }
+    }
+    // 最响的人满音量, 其余人压到 DUCK_RATIO
+    for (const [pid, p] of peers) {
+      if (!p.gainNode) continue;
+      const target = (p === loudest && loudestVol > 10) ? 1.0 : DUCK_RATIO;
+      // 平滑过渡避免爆音
+      const cur = p.gainNode.gain.value;
+      p.gainNode.gain.value = cur + (target - cur) * 0.2;
+    }
+  }, 100);
+}
+function stopDucking() {
+  if (duckTimer) { clearInterval(duckTimer); duckTimer = null; }
+}
 
 function reconnectPanner(p) {
   // 恢复默认链路: stereoPan → panner → gainNode
@@ -528,6 +553,7 @@ async function joinRoom() {
   peer.on('open', () => {
     showSelf(room);
     setStatus('', false, true, room);
+    startDucking();
     mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
       peerId, x: myPos.x, y: myPos.y
     }));
@@ -614,13 +640,27 @@ function setupCall(call) {
     source.connect(stereoPan);
     stereoPan.connect(panner);
     panner.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
+    // gainNode → volAnalyser → destination (加一路分析器)
+    const volAnalyser = audioCtx.createAnalyser();
+    volAnalyser.fftSize = 256;
+    gainNode.connect(volAnalyser);
+    volAnalyser.connect(audioCtx.destination);
 
     info.stream = remoteStream;
     info.source = source;
     info.stereoPan = stereoPan;
     info.panner = panner;
     info.gainNode = gainNode;
+    info.smoothedVol = 0;
+    info._volBuf = new Uint8Array(volAnalyser.frequencyBinCount);
+    const volTick = () => {
+      if (!peers.has(pid)) return;
+      volAnalyser.getByteFrequencyData(info._volBuf);
+      const avg = info._volBuf.reduce((a,b)=>a+b,0) / info._volBuf.length;
+      info.smoothedVol = info.smoothedVol * 0.6 + avg * 0.4;
+      requestAnimationFrame(volTick);
+    };
+    volTick();
     peers.set(pid, info);
     updateSpatialAudio();
     drawMap();
@@ -688,6 +728,7 @@ function leaveRoom() {
   peers.clear();
   if (peer) { peer.destroy(); peer = null; }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
+  stopDucking();
   if (posTimer) { clearInterval(posTimer); posTimer = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
