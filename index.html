@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v20</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v21</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -710,53 +710,20 @@ function showSelf(room) {
   $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
 
-function createSilentStream() {
-  const ctx = new AudioContext();
-  const osc = ctx.createOscillator();
-  const dst = ctx.createMediaStreamDestination();
-  osc.connect(dst);
-  return dst.stream; // 无声正弦波 (gain=0 但 WebRTC 需要 active track)
-}
-
-async function startMicStream() {
-  if (localStream) { localStream.getTracks().forEach(t => t.stop()); }
-  localStream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: { ideal: 2 }, echoCancellation: false, autoGainControl: false, noiseSuppression: false, sampleRate: 48000 }
-  });
-  // 替换所有现有通话的音频轨
-  const track = localStream.getAudioTracks()[0];
-  for (const [pid, p] of peers) {
-    if (p.call && p.call.peerConnection) {
-      p.call.peerConnection.getSenders().forEach(s => {
-        if (s.track?.kind === 'audio') s.replaceTrack(track);
-      });
-    }
-  }
-  updateMicUI(true);
-}
-
-function stopMicStream() {
-  if (!localStream) return;
-  localStream.getTracks().forEach(t => t.stop());
-  localStream = null;
-  // 唤醒脉冲: 播放极短音频触发蓝牙从 HFP(通话)切回 A2DP(音乐立体声)
-  wakeBluetooth();
-  updateMicUI(false);
-}
-
-function wakeBluetooth() {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0.001; // 几乎听不见
-  osc.type = 'sine'; osc.frequency.value = 1000;
-  osc.connect(gain); gain.connect(audioCtx.destination);
-  osc.start();
-  setTimeout(() => { try { osc.stop(); osc.disconnect(); gain.disconnect(); } catch(e) {} }, 80);
-}
-
 function getActiveStream() {
-  return localStream || createSilentStream();
+  return localStream;
+}
+
+function toggleMic() {
+  if (!localStream) return;
+  micOn = !micOn;
+  // 真关麦: track.enabled = false (保留 getUserMedia, WebRTC 不断)
+  // 但立体声不恢复, 因为 getUserMedia 仍活跃
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  const btn = $('btn-mic'), label = $('self-mic');
+  btn.classList.toggle('off', !micOn); btn.textContent = micOn ? '🎤' : '🔇';
+  label.className = 'self-mic ' + (micOn ? 'on' : 'off');
+  label.textContent = micOn ? '麦克风已开启' : '已静音';
 }
 
 function updateMicUI(on) {
@@ -764,11 +731,6 @@ function updateMicUI(on) {
   btn.classList.toggle('off', !on); btn.textContent = on ? '🎤' : '🔇';
   label.className = 'self-mic ' + (on ? 'on' : 'off');
   label.textContent = on ? '按住说话 · 立体声关闭' : '松开收听 · 立体声恢复中';
-}
-
-// 原 toggleMic 保留兼容
-function toggleMic() {
-  if (localStream) { stopMicStream(); } else { startMicStream(); }
 }
 
 function setStatus(text, isError, isOnline, room) {
