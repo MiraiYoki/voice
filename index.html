@@ -353,31 +353,38 @@ function broadcastPosition() {
 
 // ═══════ 空间音频 · 5+1 算法 ═══════
 // spatialMode initialized above
-let testOsc = null, testPan = null, testTimer = null;
+let testOscL = null, testOscR = null, testGainL = null, testGainR = null, testMerger = null, testTimer = null;
 
 function startStereoTest() {
   if (!audioCtx) audioCtx = new AudioContext();
   if (audioCtx.state === 'suspended') audioCtx.resume();
-  if (testOsc) return; // already running
-  testOsc = audioCtx.createOscillator();
-  testPan = audioCtx.createStereoPanner();
-  testOsc.type = 'sine';
-  testOsc.frequency.value = 440;
-  testOsc.connect(testPan);
-  testPan.connect(audioCtx.destination);
-  testOsc.start();
-  // 每 1.5 秒在极左(-1)和极右(+1)之间切换
-  let side = true;
+  if (testOscL) return;
+
+  testMerger = audioCtx.createChannelMerger(2);
+  testGainL = audioCtx.createGain(); testGainL.gain.value = 0.12;
+  testGainR = audioCtx.createGain(); testGainR.gain.value = 0.12;
+  testOscL = audioCtx.createOscillator(); testOscL.type = 'sine'; testOscL.frequency.value = 440;
+  testOscR = audioCtx.createOscillator(); testOscR.type = 'sine'; testOscR.frequency.value = 660;
+
+  testOscL.connect(testGainL); testGainL.connect(testMerger, 0, 0); // 左声道 440Hz
+  testOscR.connect(testGainR); testGainR.connect(testMerger, 0, 1); // 右声道 660Hz
+  testMerger.connect(audioCtx.destination);
+  testOscL.start(); testOscR.start();
+
+  // 轮流: 两耳→只左→两耳→只右
+  let step = 0;
   testTimer = setInterval(() => {
-    testPan.pan.value = side ? -1 : 1;
-    side = !side;
-  }, 1500);
+    step = (step + 1) % 4;
+    testGainL.gain.value = (step === 1) ? 0 : 0.12;
+    testGainR.gain.value = (step === 3) ? 0 : 0.12;
+  }, 2000);
 }
 
 function stopStereoTest() {
   if (testTimer) { clearInterval(testTimer); testTimer = null; }
-  if (testOsc) { try { testOsc.stop(); testOsc.disconnect(); } catch(e) {} testOsc = null; }
-  if (testPan) { try { testPan.disconnect(); } catch(e) {} testPan = null; }
+  [testOscL,testOscR].forEach(o => { if(o){try{o.stop();o.disconnect()}catch(e){}} });
+  [testGainL,testGainR,testMerger].forEach(n => { if(n){try{n.disconnect()}catch(e){}} });
+  testOscL = testOscR = testGainL = testGainR = testMerger = null;
 }
 
 // spatialMode initialized above
