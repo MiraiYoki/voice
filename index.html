@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v22</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v23</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -716,9 +716,12 @@ function getSilentStream() {
   if (silentStream) return silentStream;
   const ctx = new AudioContext();
   const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
   const dst = ctx.createMediaStreamDestination();
+  gain.gain.value = 0; // 真·静音
   osc.type = 'sine'; osc.frequency.value = 440;
-  osc.connect(dst); osc.start(); // 持续运行
+  osc.connect(gain); gain.connect(dst);
+  osc.start();
   silentStream = dst.stream;
   return silentStream;
 }
