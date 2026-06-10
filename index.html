@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v35</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v36</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -538,6 +538,7 @@ async function joinRoom() {
     $('btn-join').disabled = false; currentRoom = null;
     return;
   }
+  if (navigator.audioSession) { navigator.audioSession.type = 'play-and-record'; }
 
   micOn = true;
   updateMicUI(true);
@@ -756,6 +757,7 @@ async function toggleMic() {
     // 关麦: 释放 getUserMedia → 重建 AudioContext (音乐模式 → 立体声 A2DP)
     localStream.getTracks().forEach(t => t.stop());
     localStream = null;
+    if (navigator.audioSession) { navigator.audioSession.type = 'playback'; }
     await rebuildAudio();
     updateMicUI(false);
   } else {
@@ -764,7 +766,8 @@ async function toggleMic() {
     // 额外等一帧确保系统释放音频会话
     await new Promise(r => setTimeout(r, 150));
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    rebuildAudio();
+    if (navigator.audioSession) { navigator.audioSession.type = 'play-and-record'; }
+    await rebuildAudio();
     replaceSenderTracks(localStream.getAudioTracks()[0]);
     updateMicUI(true);
   }
