@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v50</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v51</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -383,14 +383,14 @@ function toggleSimMode() {
 }
 
 async function loadPresetAudio() {
-  // 6 段真人中文语音 (macOS Ting-Ting TTS, ~2秒, AAC 32kbps mono)
+  // 剧本杀争吵场景 — 6个角色互相指控
   const presets = [
-    { x: ROOM_SIZE*0.15, y: ROOM_SIZE*0.2, url: 'audio/s1.m4a', name: '发言1' },
-    { x: ROOM_SIZE*0.85, y: ROOM_SIZE*0.2, url: 'audio/s2.m4a', name: '发言2' },
-    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.4, url: 'audio/s3.m4a', name: '发言3' },
-    { x: ROOM_SIZE*0.2,  y: ROOM_SIZE*0.7, url: 'audio/s4.m4a', name: '发言4' },
-    { x: ROOM_SIZE*0.8,  y: ROOM_SIZE*0.7, url: 'audio/s5.m4a', name: '发言5' },
-    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.85, url: 'audio/s6.m4a', name: '发言6' },
+    { x: ROOM_SIZE*0.15, y: ROOM_SIZE*0.2, url: 'audio/t1.m4a', name: '张老板' },
+    { x: ROOM_SIZE*0.85, y: ROOM_SIZE*0.2, url: 'audio/t2.m4a', name: '李小姐' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.4, url: 'audio/t3.m4a', name: '王管家' },
+    { x: ROOM_SIZE*0.2,  y: ROOM_SIZE*0.7, url: 'audio/t4.m4a', name: '赵医生' },
+    { x: ROOM_SIZE*0.8,  y: ROOM_SIZE*0.7, url: 'audio/t5.m4a', name: '孙少奶奶' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.85, url: 'audio/t6.m4a', name: '陈捕头' },
   ];
   for (const p of presets) {
     try {
