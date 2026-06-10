@@ -353,6 +353,12 @@ function updateSpatialAudio() {
     } else {
       p.panner.setPosition(tx, 0, tz);
     }
+    // StereoPannerNode: 更强的左右分离
+    if (p.stereoPan) {
+      // X 映射到 [-1, 1], 用 tanh 增强极端位置
+      const raw = tx / 10;  // -1..1
+      p.stereoPan.pan.value = Math.tanh(raw * 1.8);  // 非线性增强
+    }
   }
 }
 
@@ -468,18 +474,21 @@ function setupCall(call) {
   call.on('stream', (remoteStream) => {
     // 空间音频链路: stream → source → panner → destination
     const source = audioCtx.createMediaStreamSource(remoteStream);
+    const stereoPan = audioCtx.createStereoPanner();
     const panner = audioCtx.createPanner();
-    // HRTF = 真实头部传输函数 → 自动距离衰减 + 左右声道分离 + 前后差异
     panner.panningModel = 'HRTF';
     panner.distanceModel = 'inverse';
-    panner.refDistance = 2;     // 2m 内满音量
-    panner.maxDistance = 18;    // 18m 外听不见
+    panner.refDistance = 2;
+    panner.maxDistance = 18;
     panner.rolloffFactor = 1.5;
-    source.connect(panner);
+    // 链路: source → stereoPan (左右) → panner (距离) → destination
+    source.connect(stereoPan);
+    stereoPan.connect(panner);
     panner.connect(audioCtx.destination);
 
     info.stream = remoteStream;
     info.source = source;
+    info.stereoPan = stereoPan;
     info.panner = panner;
     peers.set(pid, info);
     updateSpatialAudio();
@@ -495,6 +504,7 @@ function removePeer(pid) {
   const p = peers.get(pid);
   if (p) {
     try { p.source?.disconnect(); } catch(e) {}
+    try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
     try { p.call?.close(); } catch(e) {}
     peers.delete(pid);
@@ -537,6 +547,7 @@ function setStatus(text, isError, isOnline, room) {
 function leaveRoom() {
   for (const [, p] of peers) {
     try { p.source?.disconnect(); } catch(e) {}
+    try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
     try { p.call?.close(); } catch(e) {}
   }
