@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v47</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v49</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -374,23 +374,57 @@ function toggleSimMode() {
   simActive = !simActive;
   $('btn-sim').classList.toggle('active', simActive);
   if (simActive) {
-    // 创建隐藏的文件输入
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = 'audio/*'; inp.multiple = true;
-    inp.style.display = 'none'; document.body.appendChild(inp);
-    inp.addEventListener('change', (e) => {
-      for (const file of e.target.files) {
-        loadSimAudio(file);
-      }
-      inp.remove();
-    });
-    inp.click();
-    showToast('选择音频文件 · 可多选');
+    loadPresetAudio();
   } else {
     removeAllSimSpeakers();
     showToast('音频源已清除');
   }
   drawMap();
+}
+
+async function loadPresetAudio() {
+  // 6 段预设对话 — 用不同频率+调制模拟多人说话
+  const presets = [
+    { x: ROOM_SIZE*0.15, y: ROOM_SIZE*0.2, freq: 200, name: '发言1' },
+    { x: ROOM_SIZE*0.85, y: ROOM_SIZE*0.2, freq: 280, name: '发言2' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.4, freq: 350, name: '发言3' },
+    { x: ROOM_SIZE*0.2,  y: ROOM_SIZE*0.7, freq: 440, name: '发言4' },
+    { x: ROOM_SIZE*0.8,  y: ROOM_SIZE*0.7, freq: 550, name: '发言5' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.85, freq: 660, name: '发言6' },
+  ];
+  for (const p of presets) {
+    const id = 'sim-' + (simNextId++);
+    addSimOscillator(id, p.x, p.y, p.freq, p.name);
+  }
+  showToast('6个声源已放置 · 点击开关 · 不同音调模拟说话');
+  drawMap();
+}
+
+function addSimOscillator(id, x, y, freq, name) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const mod = audioCtx.createOscillator(); // AM 调制模拟语声起伏
+  const modGain = audioCtx.createGain();
+  const gain = audioCtx.createGain();
+  const stereoPan = audioCtx.createStereoPanner();
+  const panner = audioCtx.createPanner();
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.refDistance = 2; panner.maxDistance = 18; panner.rolloffFactor = 1.5;
+  osc.type = 'sawtooth'; osc.frequency.value = freq;
+  mod.type = 'sine'; mod.frequency.value = 2 + Math.random() * 5; // 2-7Hz 语声调制
+  modGain.gain.value = 0.4;
+  gain.gain.value = 0.06;
+  mod.connect(modGain);
+  modGain.connect(gain.gain); // AM: 调制控制 carrier 增益
+  osc.connect(gain);
+  gain.connect(stereoPan);
+  stereoPan.connect(panner);
+  panner.connect(audioCtx.destination);
+  osc.start(); mod.start();
+  const s = { id, osc, mod, modGain, gain, panner, stereoPan, x, y, on: true, name };
+  simSpeakers.push(s);
+  updateSimSpatial(s);
 }
 
 function loadSimAudio(file) {
@@ -430,7 +464,11 @@ function addSimSpeaker(id, x, y, buffer, name) {
 
 function removeAllSimSpeakers() {
   for (const s of simSpeakers) {
-    try { s.source.stop(); s.source.disconnect(); s.gain.disconnect(); s.stereoPan.disconnect(); s.panner.disconnect(); } catch(e) {}
+    try { s.osc?.stop(); s.osc?.disconnect(); } catch(e) {}
+    try { s.mod?.stop(); s.mod?.disconnect(); } catch(e) {}
+    try { s.modGain?.disconnect(); } catch(e) {}
+    try { s.source?.stop(); s.source?.disconnect(); } catch(e) {}
+    try { s.gain?.disconnect(); s.stereoPan?.disconnect(); s.panner?.disconnect(); } catch(e) {}
   }
   simSpeakers.length = 0;
 }
