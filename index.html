@@ -96,6 +96,21 @@ body {
   font: 13px -apple-system, sans-serif; cursor: pointer;
 }
 .join-bar button:disabled { opacity: 0.4; }
+
+/* ── Spatial mode selector ── */
+.spatial-select {
+  display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;
+}
+.spatial-select button {
+  flex: 1; min-width: 48px; padding: 5px 8px; border-radius: 7px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text2); font: 10px -apple-system, sans-serif;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.spatial-select button.active {
+  background: rgba(34,197,94,0.12); color: var(--accent);
+  border-color: rgba(34,197,94,0.3);
+}
 </style>
 </head>
 <body>
@@ -109,6 +124,14 @@ body {
   <div class="map-wrap" id="map-wrap">
     <canvas id="map"></canvas>
     <div class="map-hint">拖拽自己移动 · 距离越近声音越大 · 左右声道分离</div>
+  </div>
+
+  <div class="spatial-select" id="spatial-select" style="display:none">
+    <button data-mode="hrtf" class="active">HRTF</button>
+    <button data-mode="equal">EqualP</button>
+    <button data-mode="stereo">Stereo</button>
+    <button data-mode="hybrid">Hybrid</button>
+    <button data-mode="custom">Custom</button>
   </div>
 
   <div class="self-row" id="self-row" style="display:none">
@@ -137,7 +160,7 @@ body {
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
-const POS_INTERVAL = 30; // 位置广播间隔 (ms)
+const POS_INTERVAL = 0; // 位置广播间隔 (0=每帧)
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
@@ -327,12 +350,13 @@ function broadcastPosition() {
   }
 }
 
-// ═══════ 空间音频 ═══════
+// ═══════ 空间音频 · 5 算法 ═══════
+let spatialMode = 'hrtf'; // hrtf | equal | stereo | hybrid | custom
+
 function updateSpatialAudio() {
   if (!audioCtx) return;
   const listener = audioCtx.listener;
-  // 把自己的世界坐标映射到音频空间 (米)
-  const sx = (myPos.x / ROOM_SIZE) * 20 - 10;  // -10m ~ +10m
+  const sx = (myPos.x / ROOM_SIZE) * 20 - 10;
   const sy = 0;
   const sz = (myPos.y / ROOM_SIZE) * 20 - 10;
   if (listener.positionX) {
@@ -344,20 +368,71 @@ function updateSpatialAudio() {
   }
 
   for (const [pid, p] of peers) {
-    if (!p.panner) continue;
-    const tx = (p.x / ROOM_SIZE) * 20 - 10;
+    if (!p.gainNode) continue;
+
+    const tx = (p.x / ROOM_SIZE) * 20 - 10; // -10m ~ +10m
     const tz = (p.y / ROOM_SIZE) * 20 - 10;
-    if (p.panner.positionX) {
-      p.panner.positionX.value = tx;
-      p.panner.positionZ.value = tz;
-    } else {
-      p.panner.setPosition(tx, 0, tz);
+    const dx = tx - sx; // 相对于我的 X
+    const dz = tz - sz; // 相对于我的 Z (前后)
+    const distM = Math.sqrt(dx*dx + dz*dz);
+    const angle = Math.atan2(dx, Math.abs(dz) + 0.01); // 水平角
+
+    // 距离衰减: inverse-square + 钳位
+    const refDist = 2;
+    const maxDist = 18;
+    const distGain = Math.max(0, Math.min(1, refDist / Math.max(refDist, distM)));
+    // 前后衰减: 背后声音闷一点 (HRTF 模拟)
+    const frontBackGain = dz >= 0 ? 1.0 : 0.7; // 前面正常, 后面 -30%
+
+    // 设置 PannerNode 位置
+    if (p.panner) {
+      if (p.panner.positionX) {
+        p.panner.positionX.value = tx;
+        p.panner.positionZ.value = tz;
+      } else {
+        p.panner.setPosition(tx, 0, tz);
+      }
     }
-    // StereoPannerNode: 更强的左右分离
-    if (p.stereoPan) {
-      // X 映射到 [-1, 1], 用 tanh 增强极端位置
-      const raw = tx / 10;  // -1..1
-      p.stereoPan.pan.value = Math.tanh(raw * 1.8);  // 非线性增强
+
+    // 根据模式更新各节点
+    switch (spatialMode) {
+      case 'hrtf':
+        // 纯 HRTF, 被动 stereo
+        p.panner && (p.panner.panningModel = 'HRTF');
+        p.stereoPan && (p.stereoPan.pan.value = 0);
+        p.gainNode.gain.value = 1;
+        break;
+      case 'equal':
+        // EqualPower 更明显的 L/R
+        p.panner && (p.panner.panningModel = 'equalpower');
+        p.stereoPan && (p.stereoPan.pan.value = 0);
+        p.gainNode.gain.value = 1;
+        break;
+      case 'stereo':
+        // 纯 StereoPanner + 手动距离增益
+        p.panner && (p.panner.panningModel = 'HRTF');
+        p.panner && p.panner.positionX && (p.panner.positionX.value = sx);
+        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz);
+        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 2.5));
+        p.gainNode.gain.value = distGain * frontBackGain;
+        break;
+      case 'hybrid':
+        // HRTF + StereoPan 叠加
+        p.panner && (p.panner.panningModel = 'HRTF');
+        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 1.5));
+        p.gainNode.gain.value = 1;
+        break;
+      case 'custom':
+        // 纯手动: 距离增益 + stereo 分离 + 前后衰减
+        // 用 PannerNode 做纯距离 (位置设到听者同一方向但保持距离)
+        const ndx = dx / (distM + 0.001);
+        const ndz = dz / (distM + 0.001);
+        p.panner && p.panner.positionX && (p.panner.positionX.value = sx + ndx * Math.min(distM, 5));
+        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz + ndz * Math.min(distM, 5));
+        p.panner && (p.panner.panningModel = 'HRTF');
+        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 3.0));
+        p.gainNode.gain.value = distGain * frontBackGain * 0.8;
+        break;
     }
   }
 }
@@ -476,20 +551,23 @@ function setupCall(call) {
     const source = audioCtx.createMediaStreamSource(remoteStream);
     const stereoPan = audioCtx.createStereoPanner();
     const panner = audioCtx.createPanner();
+    const gainNode = audioCtx.createGain();
     panner.panningModel = 'HRTF';
     panner.distanceModel = 'inverse';
     panner.refDistance = 2;
     panner.maxDistance = 18;
     panner.rolloffFactor = 1.5;
-    // 链路: source → stereoPan (左右) → panner (距离) → destination
+    // 链路: source → stereoPan → panner → gainNode → destination
     source.connect(stereoPan);
     stereoPan.connect(panner);
-    panner.connect(audioCtx.destination);
+    panner.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
 
     info.stream = remoteStream;
     info.source = source;
     info.stereoPan = stereoPan;
     info.panner = panner;
+    info.gainNode = gainNode;
     peers.set(pid, info);
     updateSpatialAudio();
     drawMap();
@@ -506,6 +584,7 @@ function removePeer(pid) {
     try { p.source?.disconnect(); } catch(e) {}
     try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
+    try { p.gainNode?.disconnect(); } catch(e) {}
     try { p.call?.close(); } catch(e) {}
     peers.delete(pid);
   }
@@ -519,6 +598,7 @@ function $(s) { return document.getElementById(s); }
 
 function showSelf(room) {
   $('self-row').style.display = 'flex';
+  $('spatial-select').style.display = 'flex';
   $('self-color').style.background = '#22c55e';
   $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
@@ -549,6 +629,7 @@ function leaveRoom() {
     try { p.source?.disconnect(); } catch(e) {}
     try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
+    try { p.gainNode?.disconnect(); } catch(e) {}
     try { p.call?.close(); } catch(e) {}
   }
   peers.clear();
@@ -560,6 +641,7 @@ function leaveRoom() {
   myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
   $('self-row').style.display = 'none';
+  $('spatial-select').style.display = 'none';
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
   $('btn-mic').classList.remove('off'); $('btn-mic').textContent = '🎤';
@@ -567,6 +649,16 @@ function leaveRoom() {
   setStatus('输入房间名加入');
   drawMap();
 }
+
+// ── 空间算法切换 ──
+document.querySelectorAll('.spatial-select button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    spatialMode = btn.dataset.mode;
+    document.querySelectorAll('.spatial-select button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateSpatialAudio();
+  });
+});
 
 // ═══════ 事件 ═══════
 $('btn-join').addEventListener('click', joinRoom);
