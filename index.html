@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v37</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v38</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -775,7 +775,8 @@ async function toggleMic() {
     replaceSenderTracks(localStream.getAudioTracks()[0]);
     updateMicUI(true);
   }
-  } finally { micBusy = false; }
+  } catch(e) { console.error('toggleMic error', e); showToast('麦克风切换失败'); }
+    finally { micBusy = false; }
 }
 
 function updateMicUI(on) {
