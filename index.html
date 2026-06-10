@@ -353,6 +353,15 @@ function broadcastPosition() {
 // ═══════ 空间音频 · 5 算法 ═══════
 let spatialMode = 'hrtf'; // hrtf | equal | stereo | hybrid | custom
 
+function reconnectPanner(p) {
+  // 恢复默认链路: stereoPan → panner → gainNode
+  try { p.stereoPan.disconnect(); } catch(e) {}
+  try { p.panner.disconnect(); } catch(e) {}
+  p.stereoPan.connect(p.panner);
+  p.panner.connect(p.gainNode);
+  p._stereoBypass = false;
+}
+
 function updateSpatialAudio() {
   if (!audioCtx) return;
   const listener = audioCtx.listener;
@@ -397,41 +406,49 @@ function updateSpatialAudio() {
     // 根据模式更新各节点
     switch (spatialMode) {
       case 'hrtf':
-        // 纯 HRTF, 被动 stereo
+        if (p._stereoBypass) { reconnectPanner(p); }
         p.panner && (p.panner.panningModel = 'HRTF');
         p.stereoPan && (p.stereoPan.pan.value = 0);
         p.gainNode.gain.value = 1;
         break;
       case 'equal':
-        // EqualPower 更明显的 L/R
+        if (p._stereoBypass) { reconnectPanner(p); }
         p.panner && (p.panner.panningModel = 'equalpower');
         p.stereoPan && (p.stereoPan.pan.value = 0);
         p.gainNode.gain.value = 1;
         break;
       case 'stereo':
-        // 纯 StereoPanner + 手动距离增益
-        p.panner && (p.panner.panningModel = 'HRTF');
+        // 绕过 PannerNode: 手动距离增益 + 纯 Stereo 左右
         p.panner && p.panner.positionX && (p.panner.positionX.value = sx);
         p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz);
         p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 2.5));
         p.gainNode.gain.value = distGain * frontBackGain;
+        // 关键: 把 PannerNode 输出掐掉, 让 stereoPan 直连 gainNode
+        if (!p._stereoBypass) {
+          try { p.panner.disconnect(); } catch(e) {}
+          try { p.stereoPan.disconnect(); } catch(e) {}
+          try { p.stereoPan.connect(p.gainNode); } catch(e) {}
+          p._stereoBypass = true;
+        }
         break;
       case 'hybrid':
-        // HRTF + StereoPan 叠加
+        if (p._stereoBypass) { reconnectPanner(p); }
         p.panner && (p.panner.panningModel = 'HRTF');
         p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 1.5));
         p.gainNode.gain.value = 1;
         break;
       case 'custom':
-        // 纯手动: 距离增益 + stereo 分离 + 前后衰减
-        // 用 PannerNode 做纯距离 (位置设到听者同一方向但保持距离)
-        const ndx = dx / (distM + 0.001);
-        const ndz = dz / (distM + 0.001);
-        p.panner && p.panner.positionX && (p.panner.positionX.value = sx + ndx * Math.min(distM, 5));
-        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz + ndz * Math.min(distM, 5));
-        p.panner && (p.panner.panningModel = 'HRTF');
+        // 绕过 PannerNode: 纯手动左右+距离+前后
+        p.panner && p.panner.positionX && (p.panner.positionX.value = sx);
+        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz);
         p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 3.0));
-        p.gainNode.gain.value = distGain * frontBackGain * 0.8;
+        p.gainNode.gain.value = distGain * frontBackGain;
+        if (!p._stereoBypass) {
+          try { p.panner.disconnect(); } catch(e) {}
+          try { p.stereoPan.disconnect(); } catch(e) {}
+          try { p.stereoPan.connect(p.gainNode); } catch(e) {}
+          p._stereoBypass = true;
+        }
         break;
     }
   }
