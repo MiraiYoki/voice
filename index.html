@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v39</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v40</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -526,11 +526,15 @@ async function joinRoom() {
   setStatus('正在连接...');
   $('btn-join').disabled = true;
 
+  // 重置音频会话到默认 (清除上次遗留的 playback-only 状态)
+  if (navigator.audioSession) { navigator.audioSession.type = 'auto'; }
+  await new Promise(r => setTimeout(r, 100));
+
   // 先创建 AudioContext (音乐模式, 抢占蓝牙 A2DP)
   if (!audioCtx) audioCtx = new AudioContext();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-  // 再获取麦克风 (通话模式 HFP, 但 AudioContext 已在音乐模式)
+  // 再获取麦克风 (通话模式 HFP)
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
