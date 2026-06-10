@@ -158,7 +158,7 @@ function resizeCanvas() {
   ctx.scale(devicePixelRatio, devicePixelRatio);
 }
 resizeCanvas();
-drawMap();  // 初始空房间
+// drawMap() called below after pingRipple declaration
 window.addEventListener('resize', () => { resizeCanvas(); drawMap(); });
 
 function pxToWorld(cx, cy) {
@@ -169,6 +169,7 @@ function pxToWorld(cx, cy) {
 }
 
 let pingRipple = null;
+drawMap();  // 初始空房间
 
 function drawMap() {
   const w = canvas.width / devicePixelRatio;
