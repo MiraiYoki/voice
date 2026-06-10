@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v30</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v31</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -702,20 +702,8 @@ function showSelf(room) {
   $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
 }
 
-let _cachedSilent = null;
 function getActiveStream() {
-  if (localStream) return localStream;
-  if (_cachedSilent) return _cachedSilent;
-  if (!audioCtx) audioCtx = new AudioContext();
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  const dst = audioCtx.createMediaStreamDestination();
-  gain.gain.value = 0;
-  osc.type = 'sine'; osc.frequency.value = 440;
-  osc.connect(gain); gain.connect(dst);
-  osc.start();
-  _cachedSilent = dst.stream;
-  return _cachedSilent;
+  return localStream;
 }
 
 // ── 稳定静音: track.enabled 开关 · 不释放麦克风 · 不重建链路 ──
