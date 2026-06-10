@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v49</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v50</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -383,48 +383,26 @@ function toggleSimMode() {
 }
 
 async function loadPresetAudio() {
-  // 6 段预设对话 — 用不同频率+调制模拟多人说话
+  // 6 段真人中文语音 (macOS Ting-Ting TTS, ~2秒, AAC 32kbps mono)
   const presets = [
-    { x: ROOM_SIZE*0.15, y: ROOM_SIZE*0.2, freq: 200, name: '发言1' },
-    { x: ROOM_SIZE*0.85, y: ROOM_SIZE*0.2, freq: 280, name: '发言2' },
-    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.4, freq: 350, name: '发言3' },
-    { x: ROOM_SIZE*0.2,  y: ROOM_SIZE*0.7, freq: 440, name: '发言4' },
-    { x: ROOM_SIZE*0.8,  y: ROOM_SIZE*0.7, freq: 550, name: '发言5' },
-    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.85, freq: 660, name: '发言6' },
+    { x: ROOM_SIZE*0.15, y: ROOM_SIZE*0.2, url: 'audio/s1.m4a', name: '发言1' },
+    { x: ROOM_SIZE*0.85, y: ROOM_SIZE*0.2, url: 'audio/s2.m4a', name: '发言2' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.4, url: 'audio/s3.m4a', name: '发言3' },
+    { x: ROOM_SIZE*0.2,  y: ROOM_SIZE*0.7, url: 'audio/s4.m4a', name: '发言4' },
+    { x: ROOM_SIZE*0.8,  y: ROOM_SIZE*0.7, url: 'audio/s5.m4a', name: '发言5' },
+    { x: ROOM_SIZE*0.5,  y: ROOM_SIZE*0.85, url: 'audio/s6.m4a', name: '发言6' },
   ];
   for (const p of presets) {
-    const id = 'sim-' + (simNextId++);
-    addSimOscillator(id, p.x, p.y, p.freq, p.name);
+    try {
+      const resp = await fetch(p.url);
+      const buf = await resp.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(buf);
+      const id = 'sim-' + (simNextId++);
+      addSimSpeaker(id, p.x, p.y, audioBuf, p.name);
+    } catch(e) { console.error('load preset', p.name, e); }
   }
-  showToast('6个声源已放置 · 点击开关 · 不同音调模拟说话');
+  showToast('6个真人语音声源已放置 · 点击开关');
   drawMap();
-}
-
-function addSimOscillator(id, x, y, freq, name) {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const mod = audioCtx.createOscillator(); // AM 调制模拟语声起伏
-  const modGain = audioCtx.createGain();
-  const gain = audioCtx.createGain();
-  const stereoPan = audioCtx.createStereoPanner();
-  const panner = audioCtx.createPanner();
-  panner.panningModel = 'HRTF';
-  panner.distanceModel = 'inverse';
-  panner.refDistance = 2; panner.maxDistance = 18; panner.rolloffFactor = 1.5;
-  osc.type = 'sawtooth'; osc.frequency.value = freq;
-  mod.type = 'sine'; mod.frequency.value = 2 + Math.random() * 5; // 2-7Hz 语声调制
-  modGain.gain.value = 0.4;
-  gain.gain.value = 0.06;
-  mod.connect(modGain);
-  modGain.connect(gain.gain); // AM: 调制控制 carrier 增益
-  osc.connect(gain);
-  gain.connect(stereoPan);
-  stereoPan.connect(panner);
-  panner.connect(audioCtx.destination);
-  osc.start(); mod.start();
-  const s = { id, osc, mod, modGain, gain, panner, stereoPan, x, y, on: true, name };
-  simSpeakers.push(s);
-  updateSimSpatial(s);
 }
 
 function loadSimAudio(file) {
