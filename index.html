@@ -117,7 +117,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v27</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v28</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -196,16 +196,6 @@ function pxToWorld(cx, cy) {
 
 let pingRipple = null;
 drawMap();  // 初始空房间
-// 首次触摸屏幕时唤醒蓝牙音频路由 (iOS 需要用户手势)
-let _wakeOnce = false;
-document.addEventListener('pointerdown', () => {
-  if (_wakeOnce) return; _wakeOnce = true;
-  const ctx = new AudioContext();
-  const o = ctx.createOscillator(), g = ctx.createGain();
-  g.gain.value = 0.001; o.type = 'sine'; o.frequency.value = 1000;
-  o.connect(g); g.connect(ctx.destination);
-  o.start(); setTimeout(() => { o.stop(); ctx.close(); }, 150);
-}, { once: true });
 
 function drawMap() {
   const w = canvas.width / devicePixelRatio;
@@ -536,14 +526,19 @@ async function joinRoom() {
   setStatus('正在连接...');
   $('btn-join').disabled = true;
 
-  // 先创建 AudioContext (在 getUserMedia 之前, 抢占立体声管线)
-  if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 48000 });
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // 先获取麦克风 (getUserMedia 必须在 AudioContext 之前, 否则蓝牙路由乱)
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    setStatus('麦克风权限被拒绝', true);
+    $('btn-join').disabled = false; currentRoom = null;
+    return;
+  }
 
-  // 默认以立体声收听模式进入 — 不获取麦克风
-  localStream = null;
-  micOn = false;
-  updateMicUI(false);
+  // AudioContext 在 getUserMedia 之后创建
+  if (!audioCtx) audioCtx = new AudioContext();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  micOn = true;
 
   // AudioContext (用户手势期间创建, 规避 iOS 限制)
   if (!audioCtx) audioCtx = new AudioContext();
@@ -723,81 +718,19 @@ function getActiveStream() {
   return _cachedSilent;
 }
 
-// ── 推讲: 关麦 → 重建AudioContext → 恢复立体声+蓝牙 ──
-async function toggleMic() {
-  if (localStream) {
-    // 1. 释放麦克风
-    localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-    // 2. 销毁 AudioContext (清除通话模式)
-    if (audioCtx) { try { audioCtx.close(); } catch(e) {} audioCtx = null; }
-    _cachedSilent = null;
-    // 3. 重建 AudioContext + 重连所有对端音频
-    await rebuildAudioPipeline();
-    // 4. 唤醒蓝牙
-    wakeBluetoothHard();
-  } else {
-    // 开麦
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-    } catch(e) { showToast('麦克风获取失败'); return; }
-  }
-  updateMicUI(!!localStream);
-}
-
-async function rebuildAudioPipeline() {
-  audioCtx = new AudioContext({ sampleRate: 48000 });
-  if (audioCtx.state === 'suspended') await audioCtx.resume();
-  // 重新连接所有已有对端的音频: source → stereoPan → panner → gainNode → dst
-  for (const [pid, p] of peers) {
-    if (!p.stream) continue;
-    try { p.source?.disconnect(); p.stereoPan?.disconnect(); p.panner?.disconnect(); p.gainNode?.disconnect(); } catch(e) {}
-    p.source = audioCtx.createMediaStreamSource(p.stream);
-    p.stereoPan = audioCtx.createStereoPanner();
-    p.panner = audioCtx.createPanner();
-    p.gainNode = audioCtx.createGain();
-    p.panner.panningModel = 'HRTF';
-    p.panner.distanceModel = 'inverse';
-    p.panner.refDistance = 2; p.panner.maxDistance = 18; p.panner.rolloffFactor = 1.5;
-    p.source.connect(p.stereoPan);
-    p.stereoPan.connect(p.panner);
-    p.panner.connect(p.gainNode);
-    // 音量分析器 → destination
-    const volA = audioCtx.createAnalyser();
-    volA.fftSize = 256;
-    p.gainNode.connect(volA);
-    volA.connect(audioCtx.destination);
-    p._volBuf = new Uint8Array(volA.frequencyBinCount);
-    // 重启音量采样
-    const tick = () => {
-      if (!peers.has(pid)) return;
-      volA.getByteFrequencyData(p._volBuf);
-      const avg = p._volBuf.reduce((a,b)=>a+b,0) / p._volBuf.length;
-      p.smoothedVol = p.smoothedVol * 0.6 + avg * 0.4;
-      requestAnimationFrame(tick);
-    };
-    tick();
-    updateSpatialAudio();
-  }
-}
-
-function wakeBluetoothHard() {
-  if (!audioCtx) return;
-  // 播一段明显的音频触发蓝牙重连 (200ms, 勉强可闻)
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  g.gain.value = 0.05;
-  o.type = 'sine'; o.frequency.value = 800;
-  o.connect(g); g.connect(audioCtx.destination);
-  o.start();
-  setTimeout(() => { try { o.stop(); o.disconnect(); g.disconnect(); } catch(e) {} }, 250);
+// ── 简单静音: track.enabled 开关 ──
+function toggleMic() {
+  if (!localStream) return;
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  updateMicUI(micOn);
 }
 
 function updateMicUI(on) {
   const btn = $('btn-mic'), label = $('self-mic');
   btn.classList.toggle('off', !on); btn.textContent = on ? '🎤' : '🔇';
   label.className = 'self-mic ' + (on ? 'on' : 'off');
-  label.textContent = on ? '麦克风已开启' : '已静音';
+  label.textContent = on ? '麦克风已开启 · 蓝牙单声道' : '已静音';
 }
 
 function setStatus(text, isError, isOnline, room) {
