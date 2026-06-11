@@ -350,9 +350,14 @@ function connectRegistry() {
       try { var d = JSON.parse(msg.toString()); d._createdAt = Date.now(); roomList.set(name, d); } catch(e) {}
     }
     renderRoomList();
-    // 清理10分钟以上的僵尸房间
+    // 清理30秒无心跳的僵尸房间(从列表移除+清MQTT保留消息)
     var now = Date.now();
-    for (var [rn, ri] of roomList) { if (now - (ri._createdAt||0) > 600000) roomList.delete(rn); }
+    for (var [rn, ri] of roomList) {
+      if (now - (ri._createdAt||0) > 30000) {
+        roomList.delete(rn);
+        registryMqtt.publish('voice-registry/' + rn, '', { retain: true });
+      }
+    }
   });
 }
 
