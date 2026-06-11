@@ -180,6 +180,28 @@ body {
 }
 .room-empty { text-align:center; color: var(--text2); padding:40px 24px; font-size:13px; line-height:1.7; }
 
+/* ── Home panel ── */
+.home-panel { flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 4px; }
+.home-cards { display:flex; flex-direction:column; gap:12px; }
+.home-card {
+  background: var(--card); border:1.5px solid var(--border); border-radius: var(--radius);
+  padding: 22px 20px; display:flex; align-items:center; gap:14px;
+  cursor:pointer; transition: border-color .2s, transform .15s ease-out;
+}
+.home-card:hover { border-color: var(--accent); transform:translateY(-2px); }
+.home-card:active { transform:scale(.98); }
+.home-card-icon { font-size:32px; flex-shrink:0; width:52px; text-align:center; }
+.home-card-title { font-size:16px; font-weight:640; letter-spacing:-.01em; }
+.home-card-desc { font-size:12px; color:var(--text2); margin-top:3px; }
+
+/* ── Back button ── */
+.back-btn {
+  padding:6px 14px; border-radius:8px; border:1px solid var(--border);
+  background: var(--card); color: var(--text); font:13px system-ui;
+  cursor:pointer; flex-shrink:0; transition:border-color .15s;
+}
+.back-btn:hover { border-color: var(--accent); }
+
 /* ── Spatial mode selector ── */
 .spatial-select {
   display:flex; gap:4px; flex-shrink:0; flex-wrap:wrap;
@@ -200,16 +222,55 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v58</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v59</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
-  <div class="room-panel" id="room-panel">
-    <div class="search-bar">
-      <input id="room-search" placeholder="搜索房间...">
+  <!-- 首页 -->
+  <div class="home-panel" id="home-panel">
+    <div class="home-cards">
+      <div class="home-card" id="home-create">
+        <div class="home-card-icon">🏯</div>
+        <div class="home-card-title">创建房间</div>
+        <div class="home-card-desc">设置名称与密码</div>
+      </div>
+      <div class="home-card" id="home-find">
+        <div class="home-card-icon">🔍</div>
+        <div class="home-card-title">查找房间</div>
+        <div class="home-card-desc">浏览或搜索已有房间</div>
+      </div>
+      <div class="home-card" id="home-profile">
+        <div class="home-card-icon" id="home-avatar-icon">👤</div>
+        <div class="home-card-title">角色设置</div>
+        <div class="home-card-desc" id="home-profile-name">未设置角色</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 房间列表 -->
+  <div class="room-panel" id="room-panel" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <button class="back-btn" id="room-back">← 返回</button>
+      <div class="search-bar" style="flex:1;margin:0"><input id="room-search" placeholder="搜索房间..."></div>
     </div>
     <div class="room-empty" id="room-empty">加载中...</div>
     <div id="room-list"></div>
+  </div>
+
+  <!-- 角色设置 -->
+  <div class="room-panel" id="profile-panel" style="display:none">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <button class="back-btn" id="profile-back">← 返回</button>
+      <span style="font-weight:600">角色设置</span>
+    </div>
+    <div style="text-align:center;padding:16px 0">
+      <label for="avatar-upload" style="cursor:pointer">
+        <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:var(--card);border:2px dashed var(--border);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden">👤</div>
+      </label>
+      <input type="file" id="avatar-upload" accept="image/*" style="display:none">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px">点击头像上传图片</div>
+      <input id="profile-name" placeholder="输入角色名称" style="width:100%;max-width:240px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font:14px system-ui;text-align:center;outline:none" maxlength="12">
+    </div>
   </div>
 
   <div class="map-wrap" id="map-wrap" style="display:none">
@@ -949,7 +1010,9 @@ async function joinRoom(isCreate) {
 
   currentRoom = roomName;
   isRoomCreator = isCreate;
+  $('home-panel').style.display = 'none';
   $('room-panel').style.display = 'none';
+  $('profile-panel').style.display = 'none';
   $('map-wrap').style.display = '';
   $('joystick').style.display = '';
   resizeCanvas(); drawMap();
@@ -1142,8 +1205,13 @@ function $(s) { return document.getElementById(s); }
 function showSelf(room) {
   $('self-row').style.display = 'flex';
   $('btn-sim').style.display = '';
-  $('self-color').style.background = '#22c55e';
-  $('self-name').textContent = '我 (' + myPeerId.slice(-6) + ')';
+  $('join-bar').style.display = 'none';
+  if (profileAvatar) {
+    $('self-color').style.backgroundImage = `url(${profileAvatar})`;
+    $('self-color').style.backgroundSize = 'cover';
+    $('self-color').textContent = '';
+  }
+  $('self-name').textContent = profileName || ('我 (' + myPeerId.slice(-6) + ')');
 }
 
 function getActiveStream() {
@@ -1289,9 +1357,12 @@ function leaveRoom() {
   myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
   $('self-row').style.display = 'none';
-  $('room-panel').style.display = '';
+  $('home-panel').style.display = '';
+  $('room-panel').style.display = 'none';
+  $('profile-panel').style.display = 'none';
   $('map-wrap').style.display = 'none';
   $('joystick').style.display = 'none';
+  $('join-bar').style.display = '';
   // 始终可见
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
@@ -1315,6 +1386,64 @@ document.querySelectorAll('.spatial-select button').forEach(btn => {
 
 // ═══════ 事件 ═══════
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+// ═══════ 首页导航 ═══════
+function showPanel(name) {
+  ['home-panel','room-panel','profile-panel'].forEach(id => $(id).style.display = 'none');
+  if (name === 'home') { $('home-panel').style.display = ''; $('join-bar').style.display = ''; }
+  else if (name === 'room') { $('room-panel').style.display = ''; $('join-bar').style.display = ''; }
+  else if (name === 'profile') { $('profile-panel').style.display = ''; $('join-bar').style.display = 'none'; }
+}
+$('home-create').addEventListener('click', () => {
+  $('room-input').focus();
+  showToast('输入房间名和密码，点击"创建"');
+});
+$('home-find').addEventListener('click', () => { showPanel('room'); });
+$('home-profile').addEventListener('click', () => { showPanel('profile'); });
+$('room-back').addEventListener('click', () => { showPanel('home'); });
+$('profile-back').addEventListener('click', () => { showPanel('home'); });
+
+// ═══════ 角色设置 ═══════
+let profileName = localStorage.getItem('voice-profile-name') || '';
+let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
+function updateProfileUI() {
+  $('home-profile-name').textContent = profileName || '未设置角色';
+  $('home-avatar-icon').textContent = profileAvatar ? '' : '👤';
+  if (profileAvatar) {
+    $('home-avatar-icon').style.backgroundImage = `url(${profileAvatar})`;
+    $('home-avatar-icon').style.backgroundSize = 'cover';
+  }
+  $('profile-name').value = profileName;
+  if (profileAvatar) {
+    $('avatar-preview').style.backgroundImage = `url(${profileAvatar})`;
+    $('avatar-preview').style.backgroundSize = 'cover';
+    $('avatar-preview').textContent = '';
+  }
+}
+$('avatar-upload').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const size = Math.min(img.width, img.height);
+    c.width = c.height = 200;
+    const ctx = c.getContext('2d');
+    ctx.beginPath(); ctx.arc(100, 100, 100, 0, Math.PI * 2); ctx.clip();
+    ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
+    profileAvatar = c.toDataURL();
+    localStorage.setItem('voice-profile-avatar', profileAvatar);
+    updateProfileUI();
+  };
+  img.src = URL.createObjectURL(file);
+});
+$('profile-name').addEventListener('input', (e) => {
+  profileName = e.target.value.trim();
+  localStorage.setItem('voice-profile-name', profileName);
+  updateProfileUI();
+});
+updateProfileUI();
+
+// ═══════ MQTT + 事件 ═══════
 connectRegistry();
 $('btn-join').addEventListener('click', () => joinRoom(false));
 $('btn-create').addEventListener('click', () => joinRoom(true));
