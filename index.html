@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v127</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v128</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -310,7 +310,7 @@ function showToast(msg) {
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
-const POS_INTERVAL = 50; // 位置广播间隔 (ms) — 20fps实时同步
+const POS_INTERVAL = 16; // 位置广播间隔 (ms) — ~60fps
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
@@ -933,23 +933,34 @@ async function joinRoom(isCreate) {
 
 // ── 原生 WebRTC 信令 (通过MQTT传SDP/ICE) ──
 function createPC(remotePeerId) {
+  // 如果已有连接且状态正常, 不重复创建
+  var old = peers.get(remotePeerId);
+  if (old && old.pc && (old.pc.connectionState === 'connected' || old.pc.connectionState === 'connecting')) return old.pc;
+
   var pc = new RTCPeerConnection(PEER_CONFIG);
-  var info = peers.get(remotePeerId) || {};
+  var info = old || {};
+  // 关闭旧连接
+  if (info.pc) { try { info.pc.close(); } catch(e) {} }
   info.pc = pc; peers.set(remotePeerId, info);
 
   pc.onicecandidate = function(e) {
     if (e.candidate) mqttClient.publish('voice-room/' + room + '/ice', JSON.stringify({to: remotePeerId, ice: e.candidate}));
   };
+  pc.oniceconnectionstatechange = function() {
+    // 失败或断开后5秒重试
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      setTimeout(function() {
+        if (peers.has(remotePeerId) && peers.get(remotePeerId).pc === pc) createPC(remotePeerId);
+      }, 5000);
+    }
+  };
   pc.ontrack = function(e) {
     var stream = e.streams[0]; if (!stream) return;
     info.stream = stream;
     setupAudioNodes(remotePeerId, stream);
-    addPeerCard(remotePeerId);
     drawMap();
   };
-  // 添加本地音频轨
   if (localStream) localStream.getTracks().forEach(function(t) { pc.addTrack(t, localStream); });
-  // 接收方: 也处理track事件
   return pc;
 }
 
@@ -989,18 +1000,20 @@ function handleIce(remotePeerId, ice) {
         updateSpatialAudio(); drawMap();
         return;
       }
-      // 新 peer → 发起 WebRTC 连接 + 存储
-      var pc = createPC(data.peerId);
-      var info = peers.get(data.peerId);
+      // 新 peer → 存储信息 + 发起 WebRTC 连接
+      var info = {};
       info.x = data.x; info.y = data.y;
       info.name = data.name || ''; info.micOn = data.micOn !== false;
-      info.isSpeaking = false;
+      info.isSpeaking = false; info.color = COLORS[peers.size % COLORS.length];
       if (data.avatar) { info._avatarUrl = data.avatar; info._avatarImg = new Image(); info._avatarImg.src = data.avatar; }
+      peers.set(data.peerId, info);
+      // 异步建立连接
+      var pc = createPC(data.peerId);
       pc.createOffer().then(function(offer) {
         return pc.setLocalDescription(offer);
       }).then(function() {
         mqttClient.publish('voice-room/' + room + '/offer', JSON.stringify({to: data.peerId, offer: pc.localDescription}));
-      });
+      }).catch(function(e) { console.error('offer error', e); });
       updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
