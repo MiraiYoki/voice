@@ -197,7 +197,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v63</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v64</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -391,11 +391,10 @@ function pxToWorld(cx, cy) {
 }
 
 let pingRipple = null;
-drawMap();  // 初始空房间
-
 // ── 古风庭院地图背景 ──
 const MAP_SEED = Math.random() * 10000;
 function hash(x, y) { let h = Math.sin(x * 12.9898 + y * 78.233 + MAP_SEED) * 43758.5453; return h - Math.floor(h); }
+drawMap();  // 初始空房间
 
 function drawMap() {
   const w = canvas.width / devicePixelRatio;
