@@ -1161,7 +1161,6 @@ function leaveRoom() {
   if (peer) { peer.destroy(); peer = null; }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
   removeAllSimSpeakers(); simActive = false;
-  $('btn-sim').classList.remove('active'); $('btn-sim').style.display = 'none';
   stopDucking();
   if (posTimer) { clearInterval(posTimer); posTimer = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
@@ -1178,8 +1177,7 @@ function leaveRoom() {
   $('game-bar').style.display = 'none';
   $('home-panel').style.display = '';
   ['room-panel','profile-panel','create-panel','map-wrap'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
-  $('joystick').style.display = 'none';
-  // 始终可见
+  // joystick inside game-bar, hidden with game-bar
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
   $('btn-mic').classList.remove('off'); $('btn-mic').innerHTML = '<i data-lucide="mic" style="width:18px;height:18px"></i>'; lucide.createIcons();
