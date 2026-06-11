@@ -441,6 +441,8 @@ function updateCamera() {
 function worldToScreen(wx, wy) { return { x: wx - cameraX, y: wy - cameraY }; }
 function screenToWorld(sx, sy) { return { x: sx + cameraX, y: sy + cameraY }; }
 
+let _avatarImg = new Image();
+if (profileAvatar) _avatarImg.src = profileAvatar;
 drawMap();  // 初始空房间
 
 function drawMap() {
@@ -520,9 +522,6 @@ function drawAvatar(x, y, color, label, isSelf) {
   ctx.textAlign = 'center';
   ctx.fillText(displayName, x, y - r - 10);
 }
-
-let _avatarImg = new Image();
-if (profileAvatar) _avatarImg.src = profileAvatar;
 
 function findClosestPeer(mx, my) {
   const w = canvas.width / devicePixelRatio;
