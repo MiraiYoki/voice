@@ -1281,6 +1281,7 @@ $('avatar-upload2').addEventListener('change', (e) => {
 // 点击名称编辑
 $('self-name-wrap').addEventListener('click', () => {
   const nameEl = $('self-name');
+  if (!nameEl) return; // 已在编辑中
   const old = nameEl.textContent;
   const input = document.createElement('input');
   input.value = old === '我' ? '' : old;
