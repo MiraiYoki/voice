@@ -86,6 +86,24 @@ body {
   pointer-events:none;
 }
 
+/* ── Joystick ── */
+.joystick-wrap {
+  position:absolute; bottom:20px; right:20px;
+  width:100px; height:100px; border-radius:50%;
+  background: oklch(0.25 0.01 260 / 0.35);
+  border: 2px solid oklch(0.4 0.01 260 / 0.5);
+  touch-action:none; user-select:none; -webkit-user-select:none;
+  display:flex; align-items:center; justify-content:center;
+}
+.joystick-wrap .stick {
+  width:40px; height:40px; border-radius:50%;
+  background: oklch(0.72 0.17 85 / 0.6);
+  transition: transform .05s linear;
+  pointer-events:none;
+}
+.joystick-wrap.active { border-color: var(--accent); }
+.joystick-wrap.active .stick { background: var(--accent); }
+
 /* ── Self card ── */
 .self-row {
   background: var(--card); border-radius: var(--radius);
@@ -182,7 +200,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v56</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v57</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -196,7 +214,8 @@ body {
 
   <div class="map-wrap" id="map-wrap" style="display:none">
     <canvas id="map"></canvas>
-    <div class="map-hint">拖拽自己移动 · 距离越近声音越大 · 左右声道分离</div>
+    <div class="map-hint">拖拽移动 · 距离越近声音越大</div>
+    <div class="joystick-wrap" id="joystick" style="display:none"><div class="stick" id="joystick-stick"></div></div>
   </div>
 
   <div class="spatial-select" id="spatial-select">
@@ -460,6 +479,59 @@ canvas.addEventListener('pointerup', () => { dragging = false; dragTarget = null
 canvas.addEventListener('pointerleave', () => { dragging = false; dragTarget = null; });
 
 // 键盘 WASD
+// ── 虚拟摇杆 ──
+const joystick = $('joystick'), joystickStick = $('joystick-stick');
+let joystickActive = false, joystickDX = 0, joystickDY = 0, joystickRAF = null;
+const JOYSTICK_RADIUS = 36; // 摇杆最大偏移像素
+
+function startJoystick(e) {
+  if (!currentRoom) return;
+  joystickActive = true; joystick.classList.add('active');
+  updateJoystick(e);
+}
+function moveJoystick(e) { if (joystickActive) updateJoystick(e); }
+function stopJoystick() {
+  joystickActive = false; joystick.classList.remove('active');
+  joystickStick.style.transform = 'translate(0,0)';
+  joystickDX = joystickDY = 0;
+}
+
+function updateJoystick(e) {
+  const rect = joystick.getBoundingClientRect();
+  const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+  const px = (e.touches ? e.touches[0].clientX : e.clientX) - cx;
+  const py = (e.touches ? e.touches[0].clientY : e.clientY) - cy;
+  const dist = Math.hypot(px, py);
+  const clamp = Math.min(dist, JOYSTICK_RADIUS);
+  const nx = dist > 0 ? (px / dist) * clamp : 0;
+  const ny = dist > 0 ? (py / dist) * clamp : 0;
+  joystickStick.style.transform = `translate(${nx}px,${ny}px)`;
+  joystickDX = nx / JOYSTICK_RADIUS; // -1..1
+  joystickDY = ny / JOYSTICK_RADIUS;
+}
+
+function joystickLoop() {
+  if (!joystickActive || Math.abs(joystickDX) < 0.05 && Math.abs(joystickDY) < 0.05) {
+    joystickRAF = requestAnimationFrame(joystickLoop);
+    return;
+  }
+  const speed = 4; // 每帧移动像素
+  myPos.x += joystickDX * speed;
+  myPos.y += joystickDY * speed;
+  myPos.x = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.x));
+  myPos.y = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.y));
+  broadcastPosition();
+  updateSpatialAudio();
+  drawMap();
+  joystickRAF = requestAnimationFrame(joystickLoop);
+}
+joystickLoop();
+
+joystick.addEventListener('pointerdown', startJoystick);
+joystick.addEventListener('pointermove', moveJoystick);
+joystick.addEventListener('pointerup', stopJoystick);
+joystick.addEventListener('pointerleave', stopJoystick);
+
 document.addEventListener('keydown', (e) => {
   if (!currentRoom) return;
   const step = 20;
@@ -804,6 +876,7 @@ async function joinRoom(isCreate) {
   isRoomCreator = isCreate;
   $('room-panel').style.display = 'none';
   $('map-wrap').style.display = '';
+  $('joystick').style.display = '';
   resizeCanvas(); drawMap();
   $('room-search').value = '';
   renderRoomList();
@@ -1143,6 +1216,7 @@ function leaveRoom() {
   $('self-row').style.display = 'none';
   $('room-panel').style.display = '';
   $('map-wrap').style.display = 'none';
+  $('joystick').style.display = 'none';
   // 始终可见
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
