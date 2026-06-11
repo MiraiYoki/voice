@@ -507,7 +507,7 @@ function drawAvatar(x, y, color, label, isSelf, micOn, isSpeaking, ext) {
   }
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
-  glow.addColorStop(0, color + '40');
+  glow.addColorStop(0, 'rgba(255,255,255,0.25)');
   glow.addColorStop(1, 'transparent');
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(x, y, r * 2, 0, Math.PI * 2); ctx.fill();
