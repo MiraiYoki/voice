@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v117</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v118</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -448,17 +448,19 @@ function drawMap() {
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // 其他人 (世界坐标→屏幕)
+  // 其他人
   for (const [pid, p] of peers) {
     const wx = (p.x / ROOM_SIZE) * worldW, wy = (p.y / ROOM_SIZE) * worldH;
     const s = worldToScreen(wx, wy);
-    drawAvatar(s.x, s.y, p.color || '#888', pid.slice(-6), false);
+    const label = p.name || pid.slice(-6);
+    drawAvatar(s.x, s.y, p.color || '#888', label, false, p.micOn, p.isSpeaking);
   }
 
   // 自己
   const mx = (myPos.x / ROOM_SIZE) * worldW, my = (myPos.y / ROOM_SIZE) * worldH;
   const ms = worldToScreen(mx, my);
-  drawAvatar(ms.x, ms.y, '#22c55e', '我', true);
+  const selfSpeaking = Object.values(Object.fromEntries(peers)).some(p => (p.smoothedVol||0) > 15);
+  drawAvatar(ms.x, ms.y, '#22c55e', profileName || '我', true, micOn, selfSpeaking);
 
   // Ping 波纹
   if (pingRipple) {
@@ -477,8 +479,23 @@ function drawMap() {
   }
 }
 
-function drawAvatar(x, y, color, label, isSelf) {
-  const r = isSelf ? 28 : 20;
+function drawAvatar(x, y, color, label, isSelf, micOn, isSpeaking) {
+  const r = 20; // 所有人一样大
+  // 说话波纹
+  if (isSpeaking) {
+    ctx.strokeStyle = 'rgba(34,197,94,0.6)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r + 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(34,197,94,0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r + 16, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 麦状态光环
+  if (micOn !== undefined) {
+    ctx.strokeStyle = micOn ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI * 2); ctx.stroke();
+  }
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
   glow.addColorStop(0, color + '40');
@@ -496,16 +513,14 @@ function drawAvatar(x, y, color, label, isSelf) {
     ctx.fill();
   }
   ctx.restore();
-  // 边框
-  ctx.strokeStyle = isSelf ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = isSelf ? 2 : 1;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   // 标签
-  const displayName = isSelf ? (profileName || '我') : label;
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 10px -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(displayName, x, y - r - 10);
+  const displayName = isSelf ? (profileName || '我') : (label || '');
+  if (displayName) {
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(displayName, x, y - r - 14);
+  }
 }
 
 function findClosestPeer(mx, my) {
@@ -651,8 +666,9 @@ function broadcastPosition() {
   if (now - lastPosBroadcast < POS_INTERVAL) return;
   lastPosBroadcast = now;
   if (mqttClient && currentRoom) {
+    const speaking = Object.values(Object.fromEntries(peers)).some(p => (p.smoothedVol||0) > 10) || false;
     mqttClient.publish('voice-room/' + currentRoom + '/pos', JSON.stringify({
-      peerId: myPeerId, x: myPos.x, y: myPos.y
+      peerId: myPeerId, x: myPos.x, y: myPos.y, micOn, speaking
     }));
   }
 }
@@ -893,10 +909,22 @@ async function joinRoom(isCreate) {
     setStatus('', false, true, roomName);
     startDucking();
     mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
-      peerId, x: myPos.x, y: myPos.y
+      peerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true
     }));
-    // 定时广播位置
+    // 定时广播位置 + 心跳
     posTimer = setInterval(broadcastPosition, POS_INTERVAL);
+    setInterval(function() {
+      if (currentRoom) mqttClient.publish('voice-room/' + room + '/heartbeat', myPeerId);
+    }, 10000);
+    // 清理30秒无心跳的peer
+    setInterval(function() {
+      var now = Date.now();
+      for (var [pid, p] of peers) {
+        if (p._lastBeat && (now - p._lastBeat) > 35000) {
+          removePeer(pid); updateRoomCount(); showToast('有人离开了房间');
+        }
+      }
+    }, 15000);
   });
 
   peer.on('error', (e) => { setStatus('连接失败: ' + e.type, true); leaveRoom(); });
@@ -925,13 +953,18 @@ async function joinRoom(isCreate) {
       const call = peer.call(data.peerId, getActiveStream());
       const info = {};
       info.x = data.x; info.y = data.y;
+      info.name = data.name || ''; info.micOn = data.micOn !== false;
+      info.isSpeaking = false;
       peers.set(data.peerId, info);
       setupCall(call);
       updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
-      if (p) { p.x = data.x; p.y = data.y; updateSpatialAudio(); drawMap(); }
+      if (p) { p.x = data.x; p.y = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+    } else if (type === 'heartbeat') {
+      const pid = msg.toString();
+      if (peers.has(pid)) peers.get(pid)._lastBeat = Date.now();
     } else if (type === 'ping') {
       const data = JSON.parse(msg.toString());
       if (data.to === myPeerId) {
