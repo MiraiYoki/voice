@@ -212,7 +212,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v99</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v100</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -1035,38 +1035,38 @@ function removePeer(pid) {
 // ═══════ UI ═══════
 function $(s) { return document.getElementById(s); }
 
+function editRoomTitle() {
+  var titleEl = $('room-title'); if (!titleEl) return;
+  var old = titleEl.textContent;
+  var inp = document.createElement('input');
+  inp.value = old; inp.maxLength = 20;
+  inp.style.cssText = 'font-size:17px;font-weight:640;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;text-align:center;width:160px';
+  titleEl.replaceWith(inp); inp.focus(); inp.select();
+  function done() {
+    var v = inp.value.trim() || old;
+    var span = document.createElement('span'); span.id = 'room-title';
+    span.textContent = v; span.style.cursor = 'pointer'; span.title = '点击修改房间名';
+    span.onclick = editRoomTitle;
+    inp.replaceWith(span);
+    if (v !== currentRoom && currentRoom) {
+      var info = roomList.get(currentRoom) || {};
+      registryMqtt.publish('voice-registry/' + currentRoom, '', { retain: true });
+      currentRoom = v;
+      registryMqtt.publish('voice-registry/' + v, JSON.stringify({ hasPassword: info.hasPassword || false, memberCount: peers.size + 1 }), { retain: true });
+      updateRoomCount();
+    }
+  }
+  inp.onblur = done;
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') done(); });
+}
+
 function showSelf(room) {
   $('game-bar').style.display = 'flex';
-  // 显示房间名
   var titleEl = $('room-title');
   titleEl.textContent = room;
   titleEl.style.cursor = 'pointer';
   titleEl.title = '点击修改房间名';
-  // 点击编辑房间名
-  titleEl.onclick = function() {
-    var old = titleEl.textContent;
-    var inp = document.createElement('input');
-    inp.value = old; inp.maxLength = 20;
-    inp.style.cssText = 'font-size:17px;font-weight:640;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;text-align:center;width:160px';
-    titleEl.replaceWith(inp); inp.focus(); inp.select();
-    function done() {
-      var v = inp.value.trim() || old;
-      var span = document.createElement('span'); span.id = 'room-title';
-      span.textContent = v; span.style.cursor = 'pointer'; span.title = '点击修改房间名';
-      span.onclick = titleEl.onclick;
-      inp.replaceWith(span);
-      if (v !== currentRoom) {
-        // 更新注册表
-        var info = roomList.get(currentRoom) || {};
-        registryMqtt.publish('voice-registry/' + currentRoom, '', { retain: true }); // 清旧名
-        currentRoom = v;
-        registryMqtt.publish('voice-registry/' + v, JSON.stringify({ hasPassword: info.hasPassword || false, memberCount: peers.size + 1 }), { retain: true });
-        updateRoomCount();
-      }
-    }
-    inp.addEventListener('blur', done);
-    inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') done(); });
-  };
+  titleEl.onclick = editRoomTitle;
   if (profileAvatar) {
     $('self-color').style.backgroundImage = `url(${profileAvatar})`;
     $('self-color').style.backgroundSize = 'cover';
