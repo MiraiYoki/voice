@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v128</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v129</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -897,6 +897,10 @@ async function joinRoom(isCreate) {
   });
   mqttClient.on('connect', () => {
     mqttClient.subscribe('voice-room/' + room + '/#');
+    // 发布 retained announce (新人进房时MQTT自动推送给TA所有在线者)
+    mqttClient.publish('voice-room/' + room + '/peer/' + myPeerId, JSON.stringify({
+      peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true, avatar: profileAvatar || ''
+    }), { retain: true });
   });
   mqttClient.on('error', (e) => { console.error('MQTT error', e); setStatus('信令不可达 · 刷新重试', true); });
 
@@ -989,9 +993,10 @@ function handleIce(remotePeerId, ice) {
   mqttClient.on('message', (topic, msg) => {
     const parts = topic.split('/');
     const type = parts[parts.length - 1];
-    if (type === 'announce') {
-      const data = JSON.parse(msg.toString());
-      if (data.peerId === myPeerId) return;
+    if (type === 'heartbeat' || type === myPeerId) return;
+    if (type === 'announce' || (parts[parts.length - 2] === 'peer')) {
+      var data; try { data = JSON.parse(msg.toString()); } catch(e) { return; }
+      if (!data || data.peerId === myPeerId) return;
       if (!data.x) data.x = ROOM_SIZE/2; if (!data.y) data.y = ROOM_SIZE/2;
       // 如果已有这个 peer（呼叫先于 announce 到达）→ 只更新位置
       if (peers.has(data.peerId)) {
@@ -1019,7 +1024,8 @@ function handleIce(remotePeerId, ice) {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
       if (p) { p.x = data.x; p.y = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
-    } else if (type === 'offer') {
+    }
+    if (type === 'offer') {
       var d = JSON.parse(msg.toString());
       acceptOffer(d.to, d.offer);
     } else if (type === 'answer') {
@@ -1295,7 +1301,11 @@ function leaveRoom() {
   }
   peers.clear();
   for (var [pid, p] of peers) { if (p.pc) { try { p.pc.close(); } catch(e) {} } }
-  if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
+  if (mqttClient) {
+    try { mqttClient.publish('voice-room/' + currentRoom + '/peer/' + myPeerId, '', { retain: true }); } catch(e) {}
+    try { mqttClient.end(); } catch(e) {}
+    mqttClient = null;
+  }
   removeAllSimSpeakers(); simActive = false;
   // btn-sim removed
   stopDucking();
