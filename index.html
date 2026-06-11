@@ -202,27 +202,13 @@ body {
 }
 .back-btn:hover { border-color: var(--accent); }
 
-/* ── Spatial mode selector ── */
-.spatial-select {
-  display:flex; gap:4px; flex-shrink:0; flex-wrap:wrap;
-}
-.spatial-select button {
-  flex:1; min-width:44px; padding:6px 8px; border-radius:8px;
-  border:1px solid var(--border); background:transparent;
-  color: var(--text2); font:10.5px system-ui, -apple-system, sans-serif;
-  font-weight:520; cursor:pointer; transition:all .15s; white-space:nowrap;
-}
-.spatial-select button.active {
-  background: var(--accent-dim); color: var(--accent);
-  border-color: oklch(0.72 0.17 85 / 0.4);
-}
 </style>
 </head>
 <body>
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v59</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v60</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -279,14 +265,8 @@ body {
     <div class="joystick-wrap" id="joystick" style="display:none"><div class="stick" id="joystick-stick"></div></div>
   </div>
 
-  <div class="spatial-select" id="spatial-select">
-    <button data-mode="hrtf" class="active">真实</button>
-    <button data-mode="equal">均衡</button>
-    <button data-mode="stereo">声像</button>
-    <button data-mode="hybrid">混合</button>
-    <button data-mode="custom">手动</button>
-    <button data-mode="test">🔊测试</button>
-    <button data-mode="sim" id="btn-sim" style="display:none">🎭多人模拟</button>
+  <div style="flex-shrink:0;text-align:center;padding:2px 0">
+    <button id="btn-sim" style="display:none;padding:5px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font:11px system-ui;cursor:pointer">🎭 多人模拟</button>
   </div>
 
   <div class="self-row" id="self-row" style="display:none">
@@ -697,10 +677,9 @@ function broadcastPosition() {
   }
 }
 
-// ═══════ 空间音频 · 5+1 算法 ═══════
-let spatialMode = 'hrtf', duckingOn = true;
+// ═══════ 空间音频 + 避让 ═══════
+let duckingOn = true;
 const DUCK_RATIO = 0.3;
-let testOscL = null, testOscR = null, testGainL = null, testGainR = null, testMerger = null, testTimer = null;
 
 // ═══════ 音频文件加载 + 空间播放 ═══════
 const simSpeakers = []; // { id, buffer, source, gain, panner, stereoPan, x, y, on, name, looping }
@@ -830,38 +809,6 @@ drawMap = function() {
   }
 };
 
-function startStereoTest() {
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  if (testOscL) return;
-
-  testMerger = audioCtx.createChannelMerger(2);
-  testGainL = audioCtx.createGain(); testGainL.gain.value = 0.12;
-  testGainR = audioCtx.createGain(); testGainR.gain.value = 0.12;
-  testOscL = audioCtx.createOscillator(); testOscL.type = 'sine'; testOscL.frequency.value = 440;
-  testOscR = audioCtx.createOscillator(); testOscR.type = 'sine'; testOscR.frequency.value = 660;
-
-  testOscL.connect(testGainL); testGainL.connect(testMerger, 0, 0); // 左声道 440Hz
-  testOscR.connect(testGainR); testGainR.connect(testMerger, 0, 1); // 右声道 660Hz
-  testMerger.connect(audioCtx.destination);
-  testOscL.start(); testOscR.start();
-
-  // 轮流: 两耳→只左→两耳→只右
-  let step = 0;
-  testTimer = setInterval(() => {
-    step = (step + 1) % 4;
-    testGainL.gain.value = (step === 1) ? 0 : 0.12;
-    testGainR.gain.value = (step === 3) ? 0 : 0.12;
-  }, 2000);
-}
-
-function stopStereoTest() {
-  if (testTimer) { clearInterval(testTimer); testTimer = null; }
-  [testOscL,testOscR].forEach(o => { if(o){try{o.stop();o.disconnect()}catch(e){}} });
-  [testGainL,testGainR,testMerger].forEach(n => { if(n){try{n.disconnect()}catch(e){}} });
-  testOscL = testOscR = testGainL = testGainR = testMerger = null;
-}
-
 // ── 自动避让 (Ducking) ──
 let duckTimer = null;
 function startDucking() {
@@ -888,106 +835,22 @@ function stopDucking() {
   if (duckTimer) { clearInterval(duckTimer); duckTimer = null; }
 }
 
-function reconnectPanner(p) {
-  // 恢复默认链路: stereoPan → panner → gainNode
-  try { p.stereoPan.disconnect(); } catch(e) {}
-  try { p.panner.disconnect(); } catch(e) {}
-  p.stereoPan.connect(p.panner);
-  p.panner.connect(p.gainNode);
-  p._stereoBypass = false;
-}
-
 function updateSpatialAudio() {
   if (!audioCtx) return;
   // 更新模拟声源
   for (const s of simSpeakers) { if (s.on) updateSimSpatial(s); }
   const listener = audioCtx.listener;
   const sx = (myPos.x / ROOM_SIZE) * 20 - 10;
-  const sy = 0;
   const sz = (myPos.y / ROOM_SIZE) * 20 - 10;
-  if (listener.positionX) {
-    listener.positionX.value = sx;
-    listener.positionY.value = sy;
-    listener.positionZ.value = sz;
-  } else {
-    listener.setPosition(sx, sy, sz);
-  }
+  if (listener.positionX) { listener.positionX.value = sx; listener.positionZ.value = sz; }
+  else { listener.setPosition(sx, 0, sz); }
 
   for (const [pid, p] of peers) {
-    if (!p.gainNode) continue;
-
-    const tx = (p.x / ROOM_SIZE) * 20 - 10; // -10m ~ +10m
+    if (!p.panner) continue;
+    const tx = (p.x / ROOM_SIZE) * 20 - 10;
     const tz = (p.y / ROOM_SIZE) * 20 - 10;
-    const dx = tx - sx; // 相对于我的 X
-    const dz = tz - sz; // 相对于我的 Z (前后)
-    const distM = Math.sqrt(dx*dx + dz*dz);
-    const angle = Math.atan2(dx, Math.abs(dz) + 0.01); // 水平角
-
-    // 距离衰减: inverse-square + 钳位
-    const refDist = 2;
-    const maxDist = 18;
-    const distGain = Math.max(0, Math.min(1, refDist / Math.max(refDist, distM)));
-    // 前后衰减: 背后声音闷一点 (HRTF 模拟)
-    const frontBackGain = dz >= 0 ? 1.0 : 0.7; // 前面正常, 后面 -30%
-
-    // 设置 PannerNode 位置
-    if (p.panner) {
-      if (p.panner.positionX) {
-        p.panner.positionX.value = tx;
-        p.panner.positionZ.value = tz;
-      } else {
-        p.panner.setPosition(tx, 0, tz);
-      }
-    }
-
-    // 根据模式更新各节点
-    switch (spatialMode) {
-      case 'hrtf':
-        if (p._stereoBypass) { reconnectPanner(p); }
-        p.panner && (p.panner.panningModel = 'HRTF');
-        p.stereoPan && (p.stereoPan.pan.value = 0);
-        p.gainNode.gain.value = 1;
-        break;
-      case 'equal':
-        if (p._stereoBypass) { reconnectPanner(p); }
-        p.panner && (p.panner.panningModel = 'equalpower');
-        p.stereoPan && (p.stereoPan.pan.value = 0);
-        p.gainNode.gain.value = 1;
-        break;
-      case 'stereo':
-        // 绕过 PannerNode: 手动距离增益 + 纯 Stereo 左右
-        p.panner && p.panner.positionX && (p.panner.positionX.value = sx);
-        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz);
-        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 2.5));
-        p.gainNode.gain.value = distGain * frontBackGain;
-        // 关键: 把 PannerNode 输出掐掉, 让 stereoPan 直连 gainNode
-        if (!p._stereoBypass) {
-          try { p.panner.disconnect(); } catch(e) {}
-          try { p.stereoPan.disconnect(); } catch(e) {}
-          try { p.stereoPan.connect(p.gainNode); } catch(e) {}
-          p._stereoBypass = true;
-        }
-        break;
-      case 'hybrid':
-        if (p._stereoBypass) { reconnectPanner(p); }
-        p.panner && (p.panner.panningModel = 'HRTF');
-        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 1.5));
-        p.gainNode.gain.value = 1;
-        break;
-      case 'custom':
-        // 绕过 PannerNode: 纯手动左右+距离+前后
-        p.panner && p.panner.positionX && (p.panner.positionX.value = sx);
-        p.panner && p.panner.positionZ && (p.panner.positionZ.value = sz);
-        p.stereoPan && (p.stereoPan.pan.value = Math.tanh(Math.sin(angle) * 3.0));
-        p.gainNode.gain.value = distGain * frontBackGain;
-        if (!p._stereoBypass) {
-          try { p.panner.disconnect(); } catch(e) {}
-          try { p.stereoPan.disconnect(); } catch(e) {}
-          try { p.stereoPan.connect(p.gainNode); } catch(e) {}
-          p._stereoBypass = true;
-        }
-        break;
-    }
+    if (p.panner.positionX) { p.panner.positionX.value = tx; p.panner.positionZ.value = tz; }
+    else { p.panner.setPosition(tx, 0, tz); }
   }
 }
 
@@ -1371,18 +1234,6 @@ function leaveRoom() {
   setStatus('输入房间名加入');
   drawMap();
 }
-
-// ── 空间算法切换 ──
-document.querySelectorAll('.spatial-select button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    stopStereoTest();
-    spatialMode = btn.dataset.mode;
-    document.querySelectorAll('.spatial-select button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (spatialMode === 'test') { startStereoTest(); }
-    else updateSpatialAudio();
-  });
-});
 
 // ═══════ 事件 ═══════
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
