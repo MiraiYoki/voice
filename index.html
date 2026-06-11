@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v121</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v123</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -1107,7 +1107,7 @@ function removePeer(pid) {
     try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
     try { p.gainNode?.disconnect(); } catch(e) {}
-    try { p.call?.close(); } catch(e) {}
+    try { p.pc?.close(); } catch(e) {}
     peers.delete(pid);
   }
   updateRoomCount(); drawMap();
@@ -1163,9 +1163,9 @@ function getActiveStream() {
 // ── 替换所有 PeerJS 连接中的送出音频轨 ──
 function replaceSenderTracks(track) {
   for (const [pid, p] of peers) {
-    if (p.call && p.call.peerConnection) {
-      p.call.peerConnection.getSenders().forEach(s => {
-        if (s.track?.kind === 'audio') { try { s.replaceTrack(track); } catch(e) {} }
+    if (p.pc && p.pc.getSenders) {
+      p.pc.getSenders().forEach(function(s) {
+        if (s.track && s.track.kind === 'audio') { try { s.replaceTrack(track); } catch(e) {} }
       });
     }
   }
@@ -1278,10 +1278,10 @@ function leaveRoom() {
     try { p.stereoPan?.disconnect(); } catch(e) {}
     try { p.panner?.disconnect(); } catch(e) {}
     try { p.gainNode?.disconnect(); } catch(e) {}
-    try { p.call?.close(); } catch(e) {}
+    try { p.pc?.close(); } catch(e) {}
   }
   peers.clear();
-  if (peer) { peer.destroy(); peer = null; }
+  for (var [pid, p] of peers) { if (p.pc) { try { p.pc.close(); } catch(e) {} } }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
   removeAllSimSpeakers(); simActive = false;
   // btn-sim removed
