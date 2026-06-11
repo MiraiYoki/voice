@@ -45,6 +45,7 @@
 }
 
 * { margin:0;padding:0;box-sizing:border-box; }
+html, body { height: 100%; }
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
@@ -55,7 +56,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 .app {
-  width: 100%; max-width: 520px; height: 100%; overflow: hidden;
+  width: 100%; max-width: 520px; height: 100%;
   display: flex; flex-direction: column; padding: 12px 14px; gap: 10px;
   background: radial-gradient(ellipse at 50% 0%, oklch(0.62 0.22 305 / 0.03), transparent 60%);
 }
@@ -211,7 +212,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v108</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v109</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
