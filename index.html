@@ -102,6 +102,27 @@ body {
 }
 .join-bar button:disabled { opacity: 0.4; }
 
+/* ── Room list panel ── */
+.room-panel { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
+.room-panel .search-bar { display: flex; gap: 6px; margin-bottom: 4px; }
+.room-panel .search-bar input {
+  flex: 1; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); color: var(--text); padding: 8px 12px;
+  font: 13px -apple-system, sans-serif; outline: none;
+}
+.room-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; transition: all 0.15s;
+}
+.room-card:hover { border-color: rgba(34,197,94,0.3); }
+.room-card .room-icon { font-size: 20px; flex-shrink: 0; }
+.room-card .room-info { flex: 1; }
+.room-card .room-name { font-size: 14px; font-weight: 590; }
+.room-card .room-meta { font-size: 11px; color: var(--text2); }
+.room-card .room-count { font-size: 12px; color: var(--accent); font-weight: 590; white-space: nowrap; }
+.room-empty { text-align: center; color: var(--text2); padding: 32px; font-size: 13px; line-height: 1.6; }
+
 /* ── Spatial mode selector ── */
 .spatial-select {
   display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;
@@ -122,11 +143,19 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v53</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v54</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
-  <div class="map-wrap" id="map-wrap">
+  <div class="room-panel" id="room-panel">
+    <div class="search-bar">
+      <input id="room-search" placeholder="搜索房间...">
+    </div>
+    <div class="room-empty" id="room-empty">加载中...</div>
+    <div id="room-list"></div>
+  </div>
+
+  <div class="map-wrap" id="map-wrap" style="display:none">
     <canvas id="map"></canvas>
     <div class="map-hint">拖拽自己移动 · 距离越近声音越大 · 左右声道分离</div>
   </div>
@@ -152,8 +181,10 @@ body {
   </div>
 
   <div class="join-bar" id="join-bar">
-    <input id="room-input" placeholder="输入房间名..." autofocus>
+    <input id="room-input" placeholder="房间名..." style="flex:2">
+    <input id="room-pw" placeholder="密码(可选)" style="flex:1" type="password">
     <button id="btn-join">加入</button>
+    <button id="btn-create">创建</button>
   </div>
 </div>
 
@@ -172,9 +203,63 @@ const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
 let peer = null, mqttClient = null, localStream = null;
-let audioCtx = null;  // 一个共享 AudioContext
+let registryMqtt = null; // 房间注册表MQTT (常驻)
+let audioCtx = null;
 let micOn = true, myPeerId = null, currentRoom = null;
-const peers = new Map(); // peerId → { call, stream, source, panner, x, y, color }
+let isRoomCreator = false;
+const peers = new Map();
+const roomList = new Map(); // name → {hasPassword, memberCount}
+
+// ═══════ MQTT 房间注册表 (常驻连接) ═══════
+function connectRegistry() {
+  registryMqtt = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 3000 });
+  registryMqtt.on('connect', () => {
+    registryMqtt.subscribe('voice-registry/#');
+  });
+  registryMqtt.on('message', (topic, msg) => {
+    if (topic === 'voice-registry/__heartbeat') return;
+    const name = topic.replace('voice-registry/', '');
+    if (!msg.toString()) {
+      roomList.delete(name); // 空消息=删除
+      if (name === currentRoom) { leaveRoom(); showToast('房间已被销毁'); }
+    } else {
+      try { roomList.set(name, JSON.parse(msg.toString())); } catch(e) {}
+    }
+    renderRoomList();
+  });
+}
+
+function renderRoomList() {
+  const search = ($('room-search').value || '').toLowerCase();
+  const container = $('room-list');
+  const empty = $('room-empty');
+  const rooms = [...roomList.entries()].filter(([n]) => n.toLowerCase().includes(search));
+  if (rooms.length === 0) {
+    empty.style.display = ''; container.innerHTML = '';
+    empty.textContent = search ? '没有匹配的房间' : '还没有房间 · 创建一个吧';
+  } else {
+    empty.style.display = 'none';
+    container.innerHTML = rooms.map(([n, r]) =>
+      `<div class="room-card" onclick="clickRoom('${n}', ${r.hasPassword || false})">
+        <div class="room-icon">${r.hasPassword ? '&#x1F512;' : '&#x1F310;'}</div>
+        <div class="room-info"><div class="room-name">${n}</div><div class="room-meta">${r.hasPassword ? '需要密码' : '公开房间'}</div></div>
+        <div class="room-count">${r.memberCount || 0}人</div>
+      </div>`).join('');
+  }
+}
+
+function clickRoom(name, hasPassword) {
+  $('room-input').value = name;
+  if (hasPassword) { $('room-pw').focus(); } else { joinRoom(); }
+}
+
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+  return Math.abs(h).toString(36);
+}
+
+$('room-search').addEventListener('input', renderRoomList);
 
 // ═══════ Canvas 地图 ═══════
 const canvas = document.getElementById('map');
@@ -662,10 +747,26 @@ function updateSpatialAudio() {
 let posTimer = null;
 
 // ═══════ 加入/离开 ═══════
-async function joinRoom() {
-  const room = $('room-input').value.trim();
-  if (!room || currentRoom) return;
-  currentRoom = room;
+async function joinRoom(isCreate) {
+  const roomName = $('room-input').value.trim();
+  const pw = $('room-pw').value.trim();
+  if (!roomName || currentRoom) return;
+
+  // 密码处理: 实际MQTT话题 = hash(房间名+密码)
+  const hasPassword = pw.length > 0;
+  const actualRoom = hasPassword ? roomName + '-' + simpleHash(roomName + ':' + pw) : roomName;
+
+  // 如果是加入已有房间，检查是否先要在注册表中存在
+  if (!isCreate && hasPassword && !roomList.has(roomName)) {
+    showToast('房间不存在或密码错误'); return;
+  }
+
+  currentRoom = roomName;
+  isRoomCreator = isCreate;
+  $('room-panel').style.display = 'none';
+  $('map-wrap').style.display = '';
+  $('room-search').value = '';
+  renderRoomList();
 
   setStatus('正在连接...');
   $('btn-join').disabled = true;
@@ -692,11 +793,19 @@ async function joinRoom() {
   updateMicUI(true);
 
   // MQTT 房间发现
+  const room = actualRoom;
   mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
   mqttClient.on('connect', () => {
     mqttClient.subscribe('voice-room/' + room + '/#');
   });
   mqttClient.on('error', (e) => { console.error('MQTT error', e); setStatus('信令不可达 · 刷新重试', true); });
+
+  // 发布到注册表
+  if (isCreate) {
+    registryMqtt.publish('voice-registry/' + roomName, JSON.stringify({
+      hasPassword, memberCount: 1
+    }), { retain: true });
+  }
 
   // PeerJS
   const peerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
@@ -704,8 +813,8 @@ async function joinRoom() {
   peer = new Peer(peerId, { config: PEER_CONFIG });
 
   peer.on('open', () => {
-    showSelf(room);
-    setStatus('', false, true, room);
+    showSelf(roomName);
+    setStatus('', false, true, roomName);
     startDucking();
     mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
       peerId, x: myPos.x, y: myPos.y
@@ -945,6 +1054,13 @@ function updateRoomCount() {
   if (badge) {
     badge.innerHTML = '<span class="dot"></span>' + currentRoom + ' · ' + count + '人';
   }
+  // 更新注册表人数
+  const info = roomList.get(currentRoom);
+  if (isRoomCreator) {
+    registryMqtt.publish('voice-registry/' + currentRoom, JSON.stringify({
+      hasPassword: info?.hasPassword || false, memberCount: count
+    }), { retain: true });
+  }
 }
 
 function setStatus(text, isError, isOnline, room) {
@@ -975,9 +1091,18 @@ function leaveRoom() {
   if (posTimer) { clearInterval(posTimer); posTimer = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
   if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  // 清空注册表 (如果房间只剩自己)
+  const countBefore = peers.size + 1;
+  if (isRoomCreator && countBefore <= 1) {
+    registryMqtt.publish('voice-registry/' + currentRoom, '', { retain: true });
+  }
+  isRoomCreator = false;
+
   myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
   $('self-row').style.display = 'none';
+  $('room-panel').style.display = '';
+  $('map-wrap').style.display = 'none';
   // 始终可见
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
@@ -1001,12 +1126,14 @@ document.querySelectorAll('.spatial-select button').forEach(btn => {
 
 // ═══════ 事件 ═══════
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
-$('btn-join').addEventListener('click', joinRoom);
+connectRegistry();
+$('btn-join').addEventListener('click', () => joinRoom(false));
+$('btn-create').addEventListener('click', () => joinRoom(true));
 $('btn-mic').addEventListener('click', toggleMic);
 $('btn-leave').addEventListener('click', () => { if (confirm('退出房间？')) leaveRoom(); });
 $('btn-sim').addEventListener('click', toggleSimMode);
 $('room-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter') joinRoom();
+  if (e.key === 'Enter') joinRoom(false);
 });
 </script>
 </body>
