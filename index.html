@@ -200,7 +200,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v57</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v58</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -346,21 +346,96 @@ function pxToWorld(cx, cy) {
 let pingRipple = null;
 drawMap();  // 初始空房间
 
+// ── 古风庭院地图背景 ──
+const MAP_SEED = Math.random() * 10000;
+function hash(x, y) { let h = Math.sin(x * 12.9898 + y * 78.233 + MAP_SEED) * 43758.5453; return h - Math.floor(h); }
+
 function drawMap() {
   const w = canvas.width / devicePixelRatio;
   const h = canvas.height / devicePixelRatio;
   ctx.clearRect(0, 0, w, h);
 
-  // 背景装饰点
-  ctx.fillStyle = 'rgba(255,255,255,0.03)';
-  for (let i = 0; i < 30; i++) {
-    const sx = (i * 137 + 50) % w;
-    const sy = (i * 251 + 80) % h;
-    ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI * 2); ctx.fill();
+  // 草地基底
+  ctx.fillStyle = '#1a2a15';
+  ctx.fillRect(0, 0, w, h);
+  // 草地纹理
+  for (let i = 0; i < 80; i++) {
+    const gx = (i * 137 + 50) % w, gy = (i * 251 + 80) % h;
+    ctx.fillStyle = `rgba(30,55,20,${0.3 + hash(gx, gy) * 0.4})`;
+    ctx.beginPath(); ctx.arc(gx, gy, 3 + hash(gy, gx) * 5, 0, Math.PI * 2); ctx.fill();
   }
 
-  // 网格
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  // 石子路 (十字交叉)
+  ctx.fillStyle = '#3a3830';
+  const pathW = w * 0.12;
+  ctx.fillRect(w * 0.3, 0, pathW, h);        // 竖路
+  ctx.fillRect(0, h * 0.35, w, pathW * 0.8);  // 横路
+  // 路面纹理
+  ctx.fillStyle = '#48453c';
+  for (let px = w * 0.3; px < w * 0.3 + pathW; px += 8) {
+    for (let py = 0; py < h; py += 12) {
+      if (hash(px, py) > 0.5) { ctx.fillRect(px + hash(py, px) * 4, py, 4, 3); }
+    }
+  }
+
+  // 中心庭院 (石板地)
+  const cx = w * 0.5, cy = h * 0.5;
+  ctx.fillStyle = '#3d3a32';
+  ctx.beginPath(); ctx.arc(cx, cy, w * 0.12, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#4a4740'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, w * 0.12, 0, Math.PI * 2); ctx.stroke();
+  // 中心花纹
+  ctx.fillStyle = '#524e44';
+  ctx.beginPath(); ctx.arc(cx, cy, w * 0.04, 0, Math.PI * 2); ctx.fill();
+
+  // 池塘 (左上)
+  const pondX = w * 0.15, pondY = h * 0.15;
+  ctx.fillStyle = '#1a3050';
+  ctx.beginPath(); ctx.ellipse(pondX, pondY, w * 0.12, h * 0.1, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#254568'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(pondX, pondY, w * 0.12, h * 0.1, 0.3, 0, Math.PI * 2); ctx.stroke();
+  // 荷叶
+  for (let i = 0; i < 5; i++) {
+    const lx = pondX + (i - 2) * w * 0.03, ly = pondY + (i % 3 - 1) * h * 0.025;
+    ctx.fillStyle = '#2a5a2a'; ctx.beginPath(); ctx.ellipse(lx, ly, 6, 4, i * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d495a0'; ctx.beginPath(); ctx.arc(lx + 2, ly - 1, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 竹林 (右上角)
+  for (let i = 0; i < 12; i++) {
+    const bx = w * 0.8 + hash(i, 0) * w * 0.15;
+    const by = h * 0.08 + hash(0, i) * h * 0.2;
+    ctx.fillStyle = '#2d4a1e';
+    ctx.beginPath(); ctx.arc(bx, by, 5 + hash(i, i) * 6, 0, Math.PI * 2); ctx.fill();
+  }
+  // 竹林2 (左下角)
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = '#253d18';
+    ctx.beginPath(); ctx.arc(w * 0.1 + i * 8, h * 0.78 + hash(i, 5) * h * 0.15, 4 + hash(i, 3) * 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 亭子 (右下区域)
+  const pavX = w * 0.75, pavY = h * 0.72;
+  ctx.fillStyle = '#5a4030'; ctx.fillRect(pavX - 12, pavY - 12, 24, 24);
+  ctx.fillStyle = '#8b4513'; ctx.beginPath(); ctx.arc(pavX, pavY - 10, 18, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#6b3020'; ctx.beginPath(); ctx.arc(pavX, pavY - 5, 8, Math.PI, 0); ctx.fill();
+
+  // 石灯 (路边)
+  for (let i = 0; i < 4; i++) {
+    const lx = w * 0.15 + i * w * 0.23, ly = h * 0.55 + (i % 2) * h * 0.15;
+    ctx.fillStyle = '#554535'; ctx.fillRect(lx - 2, ly - 4, 4, 8);
+    ctx.fillStyle = '#aa8855'; ctx.beginPath(); ctx.arc(lx, ly - 3, 3, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 散落花瓣
+  for (let i = 0; i < 20; i++) {
+    const px = hash(i, 10) * w, py = hash(10, i) * h;
+    ctx.fillStyle = `rgba(200,150,160,${0.15 + hash(i, 20) * 0.2})`;
+    ctx.beginPath(); ctx.arc(px, py, 1.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // 网格 (半透明覆盖)
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
   ctx.lineWidth = 1;
   const gs = 40;
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
