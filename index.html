@@ -595,7 +595,7 @@ canvas.addEventListener('pointerleave', () => { dragging = false; dragTarget = n
 
 // 键盘 WASD
 // ── 虚拟摇杆 ──
-const joystick = $('joystick'), joystickStick = $('joystick-stick');
+const joystick = $('joystick') || document.createElement('div'), joystickStick = $('joystick-stick') || document.createElement('div');
 let joystickActive = false, joystickDX = 0, joystickDY = 0, joystickRAF = null;
 const JOYSTICK_RADIUS = 36; // 摇杆最大偏移像素
 
