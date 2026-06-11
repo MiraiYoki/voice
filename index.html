@@ -462,7 +462,10 @@ function drawMap() {
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // 其他人
+  // 其他人 (位置lerp平滑)
+  for (var [pid, p] of peers) {
+    if (p._targetX !== undefined) { p.x += (p._targetX - p.x) * 0.3; p.y += (p._targetY - p.y) * 0.3; }
+  }
   for (const [pid, p] of peers) {
     const wx = (p.x / ROOM_SIZE) * worldW, wy = (p.y / ROOM_SIZE) * worldH;
     const s = worldToScreen(wx, wy);
@@ -1012,6 +1015,12 @@ function handleIce(remotePeerId, ice) {
     const type = parts[parts.length - 1];
     if (type === 'heartbeat' || type === myPeerId) return;
     if (type === 'announce' || (parts[parts.length - 2] === 'peer')) {
+      // 空消息=peer离线 → 移除
+      if (!msg.toString()) {
+        var leftId = parts[parts.length - 1];
+        if (peers.has(leftId)) { removePeer(leftId); updateRoomCount(); drawMap(); showToast('有人离开了'); }
+        return;
+      }
       var data; try { data = JSON.parse(msg.toString()); } catch(e) { return; }
       if (!data || data.peerId === myPeerId) return;
       if (!data.x) data.x = ROOM_SIZE/2; if (!data.y) data.y = ROOM_SIZE/2;
@@ -1029,18 +1038,19 @@ function handleIce(remotePeerId, ice) {
       info.isSpeaking = false; info.color = COLORS[peers.size % COLORS.length];
       if (data.avatar) { info._avatarUrl = data.avatar; info._avatarImg = new Image(); info._avatarImg.src = data.avatar; }
       peers.set(data.peerId, info);
-      // 异步建立连接
+      // 异步建立连接 + 平滑位置
+      info._targetX = info.x; info._targetY = info.y;
       var pc = createPC(data.peerId);
       pc.createOffer().then(function(offer) {
         return pc.setLocalDescription(offer);
       }).then(function() {
         mqttClient.publish('voice-room/' + room + '/offer', JSON.stringify({to: data.peerId, offer: pc.localDescription}));
-      }).catch(function(e) { console.error('offer error', e); });
+      }).catch(function(e) { showToast('连接失败: ' + e.message); });
       updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
-      if (p) { p.x = data.x; p.y = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+      if (p) { p._targetX = data.x; p._targetY = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
     }
     if (type === 'offer') {
       var d = JSON.parse(msg.toString());
