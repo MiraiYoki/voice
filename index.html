@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v120</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v121</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -333,17 +333,27 @@ function connectRegistry() {
   registryMqtt = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 3000 });
   registryMqtt.on('connect', () => {
     registryMqtt.subscribe('voice-registry/#');
+    registryMqtt.subscribe('voice-registry-will/#');
   });
   registryMqtt.on('message', (topic, msg) => {
     if (topic === 'voice-registry/__heartbeat') return;
+    // 遗嘱: 有人断线 → 清房间
+    if (topic.startsWith('voice-registry-will/')) {
+      var deadRoom = topic.replace('voice-registry-will/', '');
+      roomList.delete(deadRoom); renderRoomList();
+      return;
+    }
     const name = topic.replace('voice-registry/', '');
     if (!msg.toString()) {
       roomList.delete(name); // 空消息=删除
       if (name === currentRoom) { leaveRoom(); showToast('房间已被销毁'); }
     } else {
-      try { roomList.set(name, JSON.parse(msg.toString())); } catch(e) {}
+      try { var d = JSON.parse(msg.toString()); d._createdAt = Date.now(); roomList.set(name, d); } catch(e) {}
     }
     renderRoomList();
+    // 清理10分钟以上的僵尸房间
+    var now = Date.now();
+    for (var [rn, ri] of roomList) { if (now - (ri._createdAt||0) > 600000) roomList.delete(rn); }
   });
 }
 
@@ -882,7 +892,10 @@ async function joinRoom(isCreate) {
 
   // MQTT 房间发现
   const room = actualRoom;
-  mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0 });
+  // 遗嘱: 断线时自动清理房间
+  mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0,
+    will: { topic: 'voice-registry-will/' + roomName, payload: '', retain: false }
+  });
   mqttClient.on('connect', () => {
     mqttClient.subscribe('voice-room/' + room + '/#');
   });
