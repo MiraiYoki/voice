@@ -313,6 +313,13 @@ body {
 
 </div>
 
+<script>
+// 强制清空所有Service Worker缓存
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1207,7 +1214,6 @@ function leaveRoom() {
 }
 
 // ═══════ 事件 ═══════
-if ('serviceWorker' in navigator && location.protocol === 'https:') { navigator.serviceWorker.register('sw.js'); }
 // ═══════ 首页导航 ═══════
 function showPanel(name) {
   ['home-panel','room-panel','profile-panel','create-panel'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
