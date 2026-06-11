@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="stylesheet" href="https://unpkg.com/@howssatoshi/quantumcss/dist/quantum.min.css">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -313,6 +315,14 @@ body {
 
 </div>
 
+<script>
+// 如果是从缓存加载的页面, 强制刷新一次
+window.addEventListener('pageshow', function(e) {
+  if (e.persisted || (performance.navigation && performance.navigation.type === 2)) {
+    if (!location.search.includes('_t=')) location.replace(location.pathname + '?_t=' + Date.now());
+  }
+});
+</script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
