@@ -442,7 +442,7 @@ function worldToScreen(wx, wy) { return { x: wx - cameraX, y: wy - cameraY }; }
 function screenToWorld(sx, sy) { return { x: sx + cameraX, y: sy + cameraY }; }
 
 let _avatarImg = new Image();
-if (profileAvatar) _avatarImg.src = profileAvatar;
+function initAvatarImg() { if (profileAvatar && !_avatarImg.src) _avatarImg.src = profileAvatar; }
 drawMap();  // 初始空房间
 
 function drawMap() {
@@ -1224,6 +1224,7 @@ $('btn-create-room').addEventListener('click', () => {
 // ═══════ 角色设置 ═══════
 let profileName = localStorage.getItem('voice-profile-name') || '';
 let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
+initAvatarImg();
 function updateProfileUI() {
   $('home-profile-name').textContent = profileName || '未设置角色';
   const ring = $('home-avatar-ring');
