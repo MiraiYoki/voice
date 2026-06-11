@@ -496,7 +496,7 @@ function drawMap() {
 }
 
 function drawAvatar(x, y, color, label, isSelf) {
-  const r = isSelf ? 18 : 15;
+  const r = isSelf ? 28 : 20;
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
   glow.addColorStop(0, color + '40');
