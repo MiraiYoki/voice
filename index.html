@@ -91,18 +91,27 @@ body {
 
 /* ── Joystick ── */
 .joystick-wrap {
-  width:90px; height:90px; border-radius:50%; flex-shrink:0;
-  background: oklch(0.20 0.02 280 / 0.9);
-  border: 2px solid oklch(0.62 0.22 305 / 0.5);
+  width:100px; height:100px; border-radius:50%; flex-shrink:0;
+  background: oklch(0.18 0.02 280 / 0.95);
+  border: 2.5px solid oklch(0.62 0.22 305 / 0.4);
   touch-action:none; user-select:none; -webkit-user-select:none;
   display:flex; align-items:center; justify-content:center;
+  position:relative;
 }
+.joystick-wrap::before, .joystick-wrap::after {
+  content:''; position:absolute;
+  background: oklch(0.35 0.02 280 / 0.5);
+}
+.joystick-wrap::before { width:3px; height:50px; border-radius:2px; }
+.joystick-wrap::after { width:50px; height:3px; border-radius:2px; }
 .joystick-wrap .stick {
-  width:36px; height:36px; border-radius:50%;
+  width:38px; height:38px; border-radius:50%;
   background: oklch(0.62 0.22 305 / 0.8);
-  pointer-events:none;
+  position:relative; z-index:1;
+  box-shadow: 0 0 16px oklch(0.62 0.22 305 / 0.3);
+  transition: transform .04s linear;
 }
-.joystick-wrap.active { border-color: var(--accent); }
+.joystick-wrap.active { border-color: var(--accent); box-shadow: 0 0 20px oklch(0.62 0.22 305 / 0.2); }
 .joystick-wrap.active .stick { background: var(--accent); }
 
 /* ── Self card ── */
@@ -201,8 +210,11 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v77</span></h1>
-    <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
+    <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+      <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> 空间语音聊天室</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v77</span>
+      <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
+    </h1>
   </div>
 
   <!-- 首页 -->
@@ -477,7 +489,7 @@ function drawMap() {
 }
 
 function drawAvatar(x, y, color, label, isSelf) {
-  const r = isSelf ? 16 : 14;
+  const r = isSelf ? 15 : 13;
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
   glow.addColorStop(0, color + '40');
