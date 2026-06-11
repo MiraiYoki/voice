@@ -324,7 +324,7 @@ window.addEventListener('pageshow', function(e) {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
 function showToast(msg) {
   const t = document.createElement('div');
@@ -385,7 +385,7 @@ function renderRoomList() {
     empty.textContent = search ? '没有匹配的房间' : '还没有房间 · 创建一个吧';
   } else {
     empty.style.display = 'none';
-    lucide.createIcons();
+    try { lucide.createIcons(); } catch(e) {}
     container.innerHTML = rooms.map(([n, r]) =>
       `<div class="room-card" onclick="clickRoom('${n}', ${r.hasPassword || false})">
         <div class="room-icon"><i data-lucide="${r.hasPassword ? 'lock' : 'globe'}" style="width:20px;height:20px"></i></div>
@@ -1147,7 +1147,7 @@ function updateMicUI(on) {
   btn.innerHTML = on ? '<i data-lucide="mic" style="width:18px;height:18px"></i>' : '<i data-lucide="mic-off" style="width:18px;height:18px"></i>';
   label.className = 'self-mic ' + (on ? 'on' : 'off');
   label.textContent = on ? '发言中 · 单声道' : '收听中 · 立体声';
-  lucide.createIcons();
+  try { lucide.createIcons(); } catch(e) {}
 }
 
 function updateRoomCount() {
@@ -1209,7 +1209,7 @@ function leaveRoom() {
   // joystick inside game-bar, hidden with game-bar
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
-  $('btn-mic').classList.remove('off'); $('btn-mic').innerHTML = '<i data-lucide="mic" style="width:18px;height:18px"></i>'; lucide.createIcons();
+  $('btn-mic').classList.remove('off'); $('btn-mic').innerHTML = '<i data-lucide="mic" style="width:18px;height:18px"></i>'; try { lucide.createIcons(); } catch(e) {}
   $('btn-create-room').disabled = false;
   setStatus('输入房间名加入');
   drawMap();
@@ -1278,7 +1278,7 @@ function updateGameBarAvatar() {
   const el = $('self-color');
   el.innerHTML = '';
   if (profileAvatar) { el.style.backgroundImage = `url(${profileAvatar})`; el.style.backgroundSize = 'cover'; }
-  else { el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.innerHTML = '<i data-lucide="user" style="width:20px;height:20px"></i>'; lucide.createIcons(); }
+  else { el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.innerHTML = '<i data-lucide="user" style="width:20px;height:20px"></i>'; try { lucide.createIcons(); } catch(e) {} }
 }
 $('avatar-upload').addEventListener('change', (e) => {
   handleAvatarUpload(e.target.files[0]);
@@ -1330,7 +1330,7 @@ $('btn-leave').addEventListener('click', () => { if (confirm('退出房间？'))
 // sim button removed
 $('create-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
 $('create-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
-lucide.createIcons();
+try { lucide.createIcons(); } catch(e) {}
 try { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); } } catch(e) {}
 try { caches.keys().then(k => k.forEach(x => caches.delete(x))); } catch(e) {}
 </script>
