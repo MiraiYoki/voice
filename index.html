@@ -420,9 +420,20 @@ function pxToWorld(cx, cy) {
 }
 
 let pingRipple = null;
-// ── 古风庭院地图背景 ──
-const MAP_SEED = Math.random() * 10000;
-function hash(x, y) { let h = Math.sin(x * 12.9898 + y * 78.233 + MAP_SEED) * 43758.5453; return h - Math.floor(h); }
+// ── 摄像头系统 + 背景图 ──
+const mapImage = new Image();
+mapImage.src = 'map-bg.jpg';
+let worldW = 1600, worldH = 1200, cameraX = 0, cameraY = 0;
+mapImage.onload = () => { worldW = mapImage.naturalWidth; worldH = mapImage.naturalHeight; drawMap(); };
+function updateCamera() {
+  const vw = canvas.width / devicePixelRatio, vh = canvas.height / devicePixelRatio;
+  const px = (myPos.x / ROOM_SIZE) * worldW, py = (myPos.y / ROOM_SIZE) * worldH;
+  cameraX = Math.max(0, Math.min(worldW - vw, px - vw / 2));
+  cameraY = Math.max(0, Math.min(worldH - vh, py - vh / 2));
+}
+function worldToScreen(wx, wy) { return { x: wx - cameraX, y: wy - cameraY }; }
+function screenToWorld(sx, sy) { return { x: sx + cameraX, y: sy + cameraY }; }
+
 drawMap();  // 初始空房间
 
 function drawMap() {
@@ -430,9 +441,13 @@ function drawMap() {
   const h = canvas.height / devicePixelRatio;
   ctx.clearRect(0, 0, w, h);
 
-  // 草地基底
-  ctx.fillStyle = '#1a2a15';
-  ctx.fillRect(0, 0, w, h);
+  // 背景大图 + 摄像头
+  if (mapImage.complete && worldW > 0) {
+    updateCamera();
+    ctx.drawImage(mapImage, cameraX, cameraY, w, h, 0, 0, w, h);
+  } else {
+    ctx.fillStyle = '#111'; ctx.fillRect(0, 0, w, h);
+  }
   // 草地纹理
   for (let i = 0; i < 80; i++) {
     const gx = (i * 137 + 50) % w, gy = (i * 251 + 80) % h;
@@ -516,17 +531,17 @@ function drawMap() {
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // 其他人
+  // 其他人 (世界坐标→屏幕)
   for (const [pid, p] of peers) {
-    const px = (p.x / ROOM_SIZE) * w;
-    const py = (p.y / ROOM_SIZE) * h;
-    drawAvatar(px, py, p.color || '#888', pid.slice(-6), false);
+    const wx = (p.x / ROOM_SIZE) * worldW, wy = (p.y / ROOM_SIZE) * worldH;
+    const s = worldToScreen(wx, wy);
+    drawAvatar(s.x, s.y, p.color || '#888', pid.slice(-6), false);
   }
 
   // 自己
-  const mx = (myPos.x / ROOM_SIZE) * w;
-  const my = (myPos.y / ROOM_SIZE) * h;
-  drawAvatar(mx, my, '#22c55e', '我', true);
+  const mx = (myPos.x / ROOM_SIZE) * worldW, my = (myPos.y / ROOM_SIZE) * worldH;
+  const ms = worldToScreen(mx, my);
+  drawAvatar(ms.x, ms.y, '#22c55e', '我', true);
 
   // Ping 波纹
   if (pingRipple) {
@@ -668,8 +683,9 @@ function joystickLoop() {
   const speed = 4; // 每帧移动像素
   myPos.x += joystickDX * speed;
   myPos.y += joystickDY * speed;
-  myPos.x = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.x));
-  myPos.y = Math.max(10, Math.min(ROOM_SIZE - 10, myPos.y));
+  // 相机跟随但允许玩家超出视野
+  myPos.x = Math.max(0, Math.min(ROOM_SIZE, myPos.x));
+  myPos.y = Math.max(0, Math.min(ROOM_SIZE, myPos.y));
   broadcastPosition();
   updateSpatialAudio();
   drawMap();
