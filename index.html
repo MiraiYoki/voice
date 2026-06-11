@@ -292,7 +292,6 @@ body {
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
@@ -908,18 +907,15 @@ async function joinRoom(isCreate) {
     }), { retain: true });
   }
 
-  // PeerJS
-  const peerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
-  myPeerId = peerId;
-  peer = new Peer(peerId, { config: PEER_CONFIG });
+  // 原生 WebRTC
+  myPeerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
 
-  peer.on('open', () => {
-    showSelf(roomName);
-    setStatus('', false, true, roomName);
-    startDucking();
-    mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
-      peerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true
-    }));
+  showSelf(roomName);
+  setStatus('', false, true, roomName);
+  startDucking();
+  mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
+    peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true
+  }));
     // 定时广播位置 + 心跳
     posTimer = setInterval(broadcastPosition, POS_INTERVAL);
     setInterval(function() {
@@ -936,12 +932,48 @@ async function joinRoom(isCreate) {
     }, 15000);
   });
 
-  peer.on('error', (e) => { setStatus('连接失败: ' + e.type, true); leaveRoom(); });
+// ── 原生 WebRTC 信令 (通过MQTT传SDP/ICE) ──
+function createPC(remotePeerId) {
+  var pc = new RTCPeerConnection(PEER_CONFIG);
+  var info = peers.get(remotePeerId) || {};
+  info.pc = pc; peers.set(remotePeerId, info);
 
-  peer.on('call', (call) => {
-    call.answer(getActiveStream());
-    setupCall(call);
+  pc.onicecandidate = function(e) {
+    if (e.candidate) mqttClient.publish('voice-room/' + room + '/ice', JSON.stringify({to: remotePeerId, ice: e.candidate}));
+  };
+  pc.ontrack = function(e) {
+    var stream = e.streams[0]; if (!stream) return;
+    info.stream = stream;
+    setupAudioNodes(remotePeerId, stream);
+    addPeerCard(remotePeerId);
+    drawMap();
+  };
+  // 添加本地音频轨
+  if (localStream) localStream.getTracks().forEach(function(t) { pc.addTrack(t, localStream); });
+  // 接收方: 也处理track事件
+  return pc;
+}
+
+function acceptOffer(remotePeerId, offer) {
+  var pc = createPC(remotePeerId);
+  pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function() {
+    return pc.createAnswer();
+  }).then(function(answer) {
+    return pc.setLocalDescription(answer);
+  }).then(function() {
+    mqttClient.publish('voice-room/' + room + '/answer', JSON.stringify({to: remotePeerId, answer: pc.localDescription}));
   });
+}
+
+function handleAnswer(remotePeerId, answer) {
+  var info = peers.get(remotePeerId);
+  if (info && info.pc) info.pc.setRemoteDescription(new RTCSessionDescription(answer));
+}
+
+function handleIce(remotePeerId, ice) {
+  var info = peers.get(remotePeerId);
+  if (info && info.pc) info.pc.addIceCandidate(new RTCIceCandidate(ice));
+}
 
   // 收到他人的 announcement → 回拨
   mqttClient.on('message', (topic, msg) => {
@@ -958,19 +990,31 @@ async function joinRoom(isCreate) {
         updateSpatialAudio(); drawMap();
         return;
       }
-      // 新 peer → 呼叫 + 存储
-      const call = peer.call(data.peerId, getActiveStream());
-      const info = {};
+      // 新 peer → 发起 WebRTC 连接 + 存储
+      var pc = createPC(data.peerId);
+      var info = peers.get(data.peerId);
       info.x = data.x; info.y = data.y;
       info.name = data.name || ''; info.micOn = data.micOn !== false;
       info.isSpeaking = false;
-      peers.set(data.peerId, info);
-      setupCall(call);
+      pc.createOffer().then(function(offer) {
+        return pc.setLocalDescription(offer);
+      }).then(function() {
+        mqttClient.publish('voice-room/' + room + '/offer', JSON.stringify({to: data.peerId, offer: pc.localDescription}));
+      });
       updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
       if (p) { p.x = data.x; p.y = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+    } else if (type === 'offer') {
+      var d = JSON.parse(msg.toString());
+      acceptOffer(d.to, d.offer);
+    } else if (type === 'answer') {
+      var d = JSON.parse(msg.toString());
+      handleAnswer(d.to, d.answer);
+    } else if (type === 'ice') {
+      var d = JSON.parse(msg.toString());
+      handleIce(d.to, d.ice);
     } else if (type === 'heartbeat') {
       const pid = msg.toString();
       if (peers.has(pid)) peers.get(pid)._lastBeat = Date.now();
