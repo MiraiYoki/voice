@@ -14,15 +14,15 @@
 :root {
   --bg: oklch(0.13 0.03 280);
   --bg-deeper: oklch(0.09 0.02 280);
-  --card: oklch(0.17 0.025 280 / 0.7);
-  --card-hover: oklch(0.20 0.03 280 / 0.85);
+  --card: oklch(0.20 0.025 280);
+  --card-hover: oklch(0.24 0.03 280);
   --text: oklch(0.92 0 0);
   --text2: oklch(0.55 0.015 280);
   --accent: oklch(0.62 0.22 305);
   --accent-dim: oklch(0.62 0.22 305 / 0.12);
   --danger: oklch(0.55 0.22 15);
   --danger-dim: oklch(0.55 0.22 15 / 0.12);
-  --border: oklch(0.25 0.02 280 / 0.6);
+  --border: oklch(0.30 0.02 280);
   --radius-sm: 10px;
   --radius: 14px;
   --radius-lg: 18px;
@@ -210,7 +210,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v113</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v115</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -684,7 +684,7 @@ let simActive = false, simNextId = 0;
 function toggleSimMode() {
   if (!audioCtx) { showToast('请先加入房间'); return; }
   simActive = !simActive;
-  $('btn-sim').classList.toggle('active', simActive);
+  // btn-sim removed
   if (simActive) {
     loadPresetAudio();
   } else {
@@ -1209,7 +1209,7 @@ function leaveRoom() {
   if (peer) { peer.destroy(); peer = null; }
   if (mqttClient) { try { mqttClient.end(); } catch(e) {} mqttClient = null; }
   removeAllSimSpeakers(); simActive = false;
-  $('btn-sim').classList.remove('active'); $('btn-sim').style.display = 'none';
+  // btn-sim removed
   stopDucking();
   if (posTimer) { clearInterval(posTimer); posTimer = null; }
   if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
