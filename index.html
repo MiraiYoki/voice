@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="stylesheet" href="https://unpkg.com/@howssatoshi/quantumcss/dist/quantum.min.css">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -77,8 +78,8 @@ body {
 /* ── Map ── */
 .map-wrap {
   flex:1; min-height:120px;
-  background: var(--card); border-radius: var(--radius);
-  border: 1px solid var(--border); overflow: hidden; position: relative;
+  background: var(--card) !important; border-radius: var(--radius) !important;
+  border: 1px solid var(--border) !important; overflow: hidden; position: relative;
 }
 .map-wrap canvas { display:block; width:100%; height:100%; cursor:grab; }
 .map-wrap canvas:active { cursor:grabbing; }
@@ -108,9 +109,9 @@ body {
 
 /* ── Self card ── */
 .self-row {
-  background: var(--card); border-radius: var(--radius);
+  background: var(--card) !important; border-radius: var(--radius) !important;
   padding: 10px 16px; display:flex; align-items:center; gap:12px;
-  border: 1px solid var(--border); flex-shrink:0;
+  border: 1px solid var(--border) !important; flex-shrink:0;
 }
 .self-avatar {
   width:40px; height:40px; border-radius:50%;
@@ -168,9 +169,9 @@ body {
 .home-card {
   display:flex; align-items:center; gap:16px;
   padding: 24px 20px;
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
+  background: var(--card) !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 20px !important;
   cursor:pointer;
   transition: border-color .2s, transform .15s, box-shadow .2s;
 }
@@ -243,7 +244,7 @@ body {
       <span style="font-weight:600">创建房间</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px">
-      <input id="create-name" placeholder="房间名称" style="padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font:15px system-ui;outline:none">
+      <input id="create-name" placeholder="房间名称" style="padding:12px 16px;border:1px solid var(--border)!important;border-radius:var(--radius-sm)!important;background:var(--card)!important;color:var(--text);font:15px system-ui;outline:none;width:100%;box-sizing:border-box">
       <input id="create-pw" placeholder="密码 (可选)" type="password" style="padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font:15px system-ui;outline:none">
       <button id="btn-create-room" class="btn-primary" style="width:100%;padding:12px;font-size:15px">创建并进入</button>
     </div>
