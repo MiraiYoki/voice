@@ -833,8 +833,7 @@ async function joinRoom(isCreate) {
   isRoomCreator = isCreate;
   ['home-panel','room-panel','profile-panel','create-panel'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
   $('map-wrap').style.display = '';
-  $('joystick').style.display = '';
-  resizeCanvas(); drawMap();
+  requestAnimationFrame(() => { resizeCanvas(); drawMap(); });
   $('room-search').value = '';
   renderRoomList();
 
