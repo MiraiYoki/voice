@@ -853,7 +853,11 @@ async function joinRoom(isCreate) {
   isRoomCreator = isCreate;
   ['home-panel','room-panel','profile-panel','create-panel'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
   $('map-wrap').style.display = '';
-  requestAnimationFrame(() => { resizeCanvas(); drawMap(); });
+  requestAnimationFrame(() => {
+    resizeCanvas(); drawMap();
+    // 二次确认：100ms后若尺寸仍为0则重试
+    if (canvas.width === 0) setTimeout(() => { resizeCanvas(); drawMap(); }, 150);
+  });
   $('room-search').value = '';
   renderRoomList();
 
