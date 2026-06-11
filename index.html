@@ -212,7 +212,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> 空间语音聊天室</span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v97</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v98</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -294,8 +294,9 @@ body {
   <div id="game-bar" style="display:none;flex-shrink:0;align-items:center;gap:10px;padding:4px 0">
     <div class="joystick-wrap" id="joystick"><div class="stick" id="joystick-stick"></div></div>
     <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 14px">
-      <div id="self-color" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,oklch(0.55 0.2 260),oklch(0.65 0.2 290));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="user" style="width:20px;height:20px"></i></div>
-      <div style="flex:1;min-width:0">
+      <label for="game-avatar-upload" style="cursor:pointer;flex-shrink:0"><div id="self-color" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,oklch(0.55 0.2 260),oklch(0.65 0.2 290));display:flex;align-items:center;justify-content:center;background-size:cover"><i data-lucide="user" style="width:20px;height:20px"></i></div></label>
+      <input type="file" id="game-avatar-upload" accept="image/*" style="display:none">
+      <div style="flex:1;min-width:0;cursor:pointer" id="self-name-wrap">
         <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="self-name">我</div>
         <div style="font-size:11px" id="self-mic">发言中</div>
       </div>
@@ -338,7 +339,9 @@ let audioCtx = null;
 let micOn = true, myPeerId = null, currentRoom = null;
 let isRoomCreator = false;
 const peers = new Map();
-const roomList = new Map(); // name → {hasPassword, memberCount}
+const roomList = new Map();
+let profileName = localStorage.getItem('voice-profile-name') || '';
+let profileAvatar = localStorage.getItem('voice-profile-avatar') || ''; // name → {hasPassword, memberCount}
 
 // ═══════ MQTT 房间注册表 (常驻连接) ═══════
 function connectRegistry() {
@@ -489,21 +492,34 @@ function drawMap() {
 }
 
 function drawAvatar(x, y, color, label, isSelf) {
-  const r = isSelf ? 15 : 13;
+  const r = isSelf ? 18 : 15;
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
   glow.addColorStop(0, color + '40');
   glow.addColorStop(1, 'transparent');
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(x, y, r * 2, 0, Math.PI * 2); ctx.fill();
-  // 身体
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  // 头像/圆
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+  if (isSelf && profileAvatar && _avatarImg && _avatarImg.complete && _avatarImg.naturalWidth > 0) {
+    try { ctx.drawImage(_avatarImg, x - r, y - r, r * 2, r * 2); }
+    catch(e) { ctx.fillStyle = color; ctx.fill(); }
+  } else {
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  ctx.restore();
+  // 边框
+  ctx.strokeStyle = isSelf ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = isSelf ? 2 : 1;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   // 标签
+  const displayName = isSelf ? (profileName || '我') : label;
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 10px -apple-system, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(label, x, y - r - 8);
+  ctx.fillText(displayName, x, y - r - 10);
 }
 
 function findClosestPeer(mx, my) {
@@ -1212,8 +1228,6 @@ $('btn-create-room').addEventListener('click', () => {
 });
 
 // ═══════ 角色设置 ═══════
-let profileName = localStorage.getItem('voice-profile-name') || '';
-let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
 function updateProfileUI() {
   $('home-profile-name').textContent = profileName || '未设置角色';
   const ring = $('home-avatar-ring');
@@ -1257,6 +1271,43 @@ updateProfileUI();
 connectRegistry();
 $('btn-mic').addEventListener('click', toggleMic);
 $('btn-leave').addEventListener('click', () => { if (confirm('退出房间？')) leaveRoom(); });
+
+// ── 游戏栏头像上传 ──
+$('game-avatar-upload').addEventListener('change', function() {
+  const file = this.files[0]; if (!file) return;
+  const img = new Image();
+  img.onload = function() {
+    const c = document.createElement('canvas'); const sz = Math.min(img.width, img.height);
+    c.width = c.height = 200;
+    const cx = c.getContext('2d'); cx.beginPath(); cx.arc(100, 100, 100, 0, Math.PI*2); cx.clip();
+    cx.drawImage(img, (img.width-sz)/2, (img.height-sz)/2, sz, sz, 0, 0, 200, 200);
+    profileAvatar = c.toDataURL(); _avatarImg.src = profileAvatar;
+    localStorage.setItem('voice-profile-avatar', profileAvatar);
+    var el = $('self-color'); el.innerHTML = ''; el.style.backgroundImage = 'url(' + profileAvatar + ')'; el.style.backgroundSize = 'cover';
+    updateProfileUI(); drawMap();
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+// ── 游戏栏名称编辑 ──
+$('self-name-wrap').addEventListener('click', function() {
+  var nameEl = $('self-name'); if (!nameEl) return;
+  var old = nameEl.textContent;
+  var inp = document.createElement('input');
+  inp.value = old === '我' ? '' : old; inp.placeholder = '输入名称'; inp.maxLength = 12;
+  inp.style.cssText = 'font-size:14px;font-weight:600;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;width:100%;padding:2px 0';
+  nameEl.replaceWith(inp); inp.focus(); inp.select();
+  function done() {
+    var v = inp.value.trim() || old;
+    profileName = v; localStorage.setItem('voice-profile-name', v);
+    var div = document.createElement('div'); div.id = 'self-name';
+    div.style.cssText = 'font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    div.textContent = v; inp.replaceWith(div);
+    updateProfileUI(); drawMap();
+  }
+  inp.addEventListener('blur', done);
+  inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') done(); });
+});
 // sim button removed
 $('create-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
 $('create-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
