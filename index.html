@@ -93,11 +93,16 @@ body {
 .joystick-wrap {
   position:absolute; bottom:24px; right:24px; z-index:5;
   width:110px; height:110px; border-radius:50%;
-  background: oklch(0.20 0.02 280 / 0.85);
-  border: 3px solid oklch(0.62 0.22 305 / 0.5);
+  background: oklch(0.20 0.02 280 / 0.9);
+  border: 3px solid oklch(0.62 0.22 305 / 0.6);
   touch-action:none; user-select:none; -webkit-user-select:none;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 0 20px oklch(0.62 0.22 305 / 0.15);
+  box-shadow:0 0 24px oklch(0.62 0.22 305 / 0.2);
+  animation: joystick-pulse 3s ease-in-out infinite;
+}
+@keyframes joystick-pulse {
+  0%,100% { box-shadow:0 0 24px oklch(0.62 0.22 305 / 0.2); }
+  50% { box-shadow:0 0 36px oklch(0.62 0.22 305 / 0.35); }
 }
 .joystick-wrap .stick {
   width:44px; height:44px; border-radius:50%;
@@ -112,22 +117,22 @@ body {
 /* ── Self card ── */
 .self-row {
   background: var(--card) !important; border-radius: var(--radius) !important;
-  padding: 10px 16px; display:flex; align-items:center; gap:12px;
-  border: 1px solid var(--border) !important; flex-shrink:0;
+  padding: 12px 18px; display:flex; align-items:center; gap:14px;
+  border: 2px solid var(--accent) !important; flex-shrink:0;
 }
 .self-avatar {
-  width:40px; height:40px; border-radius:50%;
+  width:44px; height:44px; border-radius:50%;
   background: linear-gradient(135deg, oklch(0.55 0.2 260), oklch(0.65 0.2 290));
   display:flex; align-items:center; justify-content:center;
   font-size: 18px; flex-shrink:0;
 }
 .self-info { flex:1; }
-.self-name { font-size:14px; font-weight:590; letter-spacing:-0.01em; }
-.self-mic { font-size:11px; letter-spacing:.01em; }
+.self-name { font-size:15px; font-weight:620; letter-spacing:-0.01em; }
+.self-mic { font-size:12px; letter-spacing:.01em; }
 .self-mic.on { color: var(--accent); }
 .self-mic.off { color: var(--danger); }
 .ctrl-btn {
-  width:38px; height:38px; border-radius:50%; border:none;
+  width:44px; height:44px; border-radius:50%; border:none;
   font-size:15px; cursor:pointer; transition: transform .12s ease-out, background .2s;
   display:flex; align-items:center; justify-content:center;
 }
