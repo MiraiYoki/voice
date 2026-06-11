@@ -294,8 +294,11 @@ body {
   <div id="game-bar" style="display:none;flex-shrink:0;align-items:center;gap:10px;padding:4px 0">
     <div class="joystick-wrap" id="joystick"><div class="stick" id="joystick-stick"></div></div>
     <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 14px">
-      <div id="self-color" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,oklch(0.55 0.2 260),oklch(0.65 0.2 290));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="user" style="width:20px;height:20px"></i></div>
-      <div style="flex:1;min-width:0">
+      <label for="avatar-upload2" style="cursor:pointer;flex-shrink:0">
+        <div id="self-color" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,oklch(0.55 0.2 260),oklch(0.65 0.2 290));display:flex;align-items:center;justify-content:center;background-size:cover"></div>
+      </label>
+      <input type="file" id="avatar-upload2" accept="image/*" style="display:none">
+      <div style="flex:1;min-width:0;cursor:pointer" id="self-name-wrap">
         <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="self-name">我</div>
         <div style="font-size:11px" id="self-mic">发言中</div>
       </div>
@@ -489,22 +492,37 @@ function drawMap() {
 }
 
 function drawAvatar(x, y, color, label, isSelf) {
-  const r = isSelf ? 15 : 13;
+  const r = isSelf ? 18 : 15;
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
   glow.addColorStop(0, color + '40');
   glow.addColorStop(1, 'transparent');
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(x, y, r * 2, 0, Math.PI * 2); ctx.fill();
-  // 身体
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+  // 头像/圆
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+  if (isSelf && profileAvatar && _avatarImg && _avatarImg.complete) {
+    ctx.drawImage(_avatarImg, x - r, y - r, r * 2, r * 2);
+  } else {
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+  ctx.restore();
+  // 边框
+  ctx.strokeStyle = isSelf ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = isSelf ? 2 : 1;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
   // 标签
+  const displayName = isSelf ? (profileName || '我') : label;
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 10px -apple-system, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(label, x, y - r - 8);
+  ctx.fillText(displayName, x, y - r - 10);
 }
+
+let _avatarImg = new Image();
+if (profileAvatar) _avatarImg.src = profileAvatar;
 
 function findClosestPeer(mx, my) {
   const w = canvas.width / devicePixelRatio;
@@ -1022,11 +1040,7 @@ function showSelf(room) {
   $('game-bar').style.display = 'flex';
   // sim button removed
   // join-bar removed
-  if (profileAvatar) {
-    $('self-color').style.backgroundImage = `url(${profileAvatar})`;
-    $('self-color').style.backgroundSize = 'cover';
-    $('self-color').textContent = '';
-  }
+  updateGameBarAvatar();
   $('self-name').textContent = profileName || ('我 (' + myPeerId.slice(-6) + ')');
 }
 
@@ -1226,23 +1240,67 @@ function updateProfileUI() {
     $('avatar-preview').textContent = '';
   }
 }
-$('avatar-upload').addEventListener('change', (e) => {
-  const file = e.target.files[0];
+function handleAvatarUpload(file, callback) {
   if (!file) return;
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas');
     const size = Math.min(img.width, img.height);
     c.width = c.height = 200;
-    const ctx = c.getContext('2d');
-    ctx.beginPath(); ctx.arc(100, 100, 100, 0, Math.PI * 2); ctx.clip();
-    ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
-    profileAvatar = c.toDataURL();
-    localStorage.setItem('voice-profile-avatar', profileAvatar);
-    updateProfileUI();
+    const ctx2 = c.getContext('2d');
+    ctx2.beginPath(); ctx2.arc(100, 100, 100, 0, Math.PI * 2); ctx2.clip();
+    ctx2.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 200, 200);
+    const dataUrl = c.toDataURL();
+    profileAvatar = dataUrl;
+    _avatarImg.src = dataUrl;
+    localStorage.setItem('voice-profile-avatar', dataUrl);
+    if (callback) callback(dataUrl);
+    updateGameBarAvatar();
+    drawMap();
   };
   img.src = URL.createObjectURL(file);
+}
+function updateGameBarAvatar() {
+  const el = $('self-color');
+  el.innerHTML = '';
+  if (profileAvatar) { el.style.backgroundImage = `url(${profileAvatar})`; el.style.backgroundSize = 'cover'; }
+  else { el.style.backgroundImage = ''; el.style.backgroundSize = ''; el.innerHTML = '<i data-lucide="user" style="width:20px;height:20px"></i>'; lucide.createIcons(); }
+}
+$('avatar-upload').addEventListener('change', (e) => {
+  handleAvatarUpload(e.target.files[0]);
 });
+$('avatar-upload2').addEventListener('change', (e) => {
+  handleAvatarUpload(e.target.files[0]);
+});
+
+// 点击名称编辑
+$('self-name-wrap').addEventListener('click', () => {
+  const nameEl = $('self-name');
+  const old = nameEl.textContent;
+  const input = document.createElement('input');
+  input.value = old === '我' ? '' : old;
+  input.placeholder = '输入名称';
+  input.maxLength = 12;
+  input.style.cssText = 'font-size:14px;font-weight:600;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--text);outline:none;width:100%;padding:2px 0';
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  const done = () => {
+    const v = input.value.trim() || old;
+    profileName = v;
+    localStorage.setItem('voice-profile-name', v);
+    const newName = document.createElement('div');
+    newName.id = 'self-name';
+    newName.style.cssText = 'font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    newName.textContent = v;
+    input.replaceWith(newName);
+    updateProfileUI();
+    drawMap();
+  };
+  input.addEventListener('blur', done);
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') done(); });
+});
+
 $('profile-name').addEventListener('input', (e) => {
   profileName = e.target.value.trim();
   localStorage.setItem('voice-profile-name', profileName);
