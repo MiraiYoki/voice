@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v126</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v127</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -310,7 +310,7 @@ function showToast(msg) {
 const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
 const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
-const POS_INTERVAL = 200; // 位置广播间隔 (ms) — 降低MQTT流量
+const POS_INTERVAL = 50; // 位置广播间隔 (ms) — 20fps实时同步
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
@@ -913,9 +913,9 @@ async function joinRoom(isCreate) {
   showSelf(roomName);
   setStatus('', false, true, roomName);
   startDucking();
-  mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify({
-    peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true
-  }));
+  var ann = {peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: true};
+  if (profileAvatar) ann.avatar = profileAvatar;
+  mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify(ann));
     // 定时广播位置 + 心跳
     posTimer = setInterval(broadcastPosition, POS_INTERVAL);
     setInterval(function() {
@@ -995,6 +995,7 @@ function handleIce(remotePeerId, ice) {
       info.x = data.x; info.y = data.y;
       info.name = data.name || ''; info.micOn = data.micOn !== false;
       info.isSpeaking = false;
+      if (data.avatar) { info._avatarUrl = data.avatar; info._avatarImg = new Image(); info._avatarImg.src = data.avatar; }
       pc.createOffer().then(function(offer) {
         return pc.setLocalDescription(offer);
       }).then(function() {
