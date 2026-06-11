@@ -960,16 +960,19 @@ function createPC(remotePeerId) {
   };
   pc.ontrack = function(e) {
     var stream = e.streams[0]; if (!stream) return;
-    console.log('ontrack from', remotePeerId);
     info.stream = stream;
     setupAudioNodes(remotePeerId, stream);
+    var name = info.name || remotePeerId.slice(-6);
+    showToast('🔊 ' + name + ' 语音已连接');
     drawMap();
   };
-  pc.onconnectionstatechange = function() {
-    console.log('PC state with', remotePeerId, '→', pc.connectionState);
+  pc.oniceconnectionstatechange = function() {
+    if (pc.iceConnectionState === 'failed') showToast('⚠️ 语音连接失败·重试中');
+    if (pc.iceConnectionState === 'disconnected') showToast('⚠️ 语音断开·重连中');
+    if (pc.iceConnectionState === 'connected') { /* 静默 */ }
     if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
       setTimeout(function() {
-        if (peers.has(remotePeerId)) { console.log('retry PC to', remotePeerId); createPC(remotePeerId); }
+        if (peers.has(remotePeerId)) createPC(remotePeerId);
       }, 3000);
     }
   };
