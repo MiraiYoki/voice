@@ -74,15 +74,15 @@ body {
 /* ── Joystick ── */
 .joystick-wrap {
   width:100px; height:100px; border-radius:50%; flex-shrink:0;
-  background: rgba(25,20,45,0.95);
-  border: 2.5px solid rgba(155,77,255,0.4);
+  background: rgba(35,28,60,0.95);
+  border: 3px solid rgba(155,77,255,0.65);
   touch-action:none; user-select:none; -webkit-user-select:none;
   display:flex; align-items:center; justify-content:center;
   position:relative;
 }
 .joystick-wrap::before, .joystick-wrap::after {
   content:''; position:absolute;
-  background: rgba(80,70,110,0.5);
+  background: rgba(155,77,255,0.3);
 }
 .joystick-wrap::before { width:3px; height:50px; border-radius:2px; }
 .joystick-wrap::after { width:50px; height:3px; border-radius:2px; }
@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v116</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v117</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
