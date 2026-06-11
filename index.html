@@ -202,7 +202,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v68</span></h1>
+    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v69</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -874,9 +874,7 @@ async function joinRoom(isCreate) {
 
   currentRoom = roomName;
   isRoomCreator = isCreate;
-  $('home-panel').style.display = 'none';
-  $('room-panel').style.display = 'none';
-  $('profile-panel').style.display = 'none';
+  ['home-panel','room-panel','profile-panel','create-panel'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
   $('map-wrap').style.display = '';
   $('joystick').style.display = '';
   resizeCanvas(); drawMap();
@@ -884,7 +882,7 @@ async function joinRoom(isCreate) {
   renderRoomList();
 
   setStatus('正在连接...');
-  $('btn-join').disabled = true;
+  $('btn-create-room').disabled = true;
 
   // 重置音频会话到默认 (清除上次遗留的 playback-only 状态)
   if (navigator.audioSession) { navigator.audioSession.type = 'auto'; }
@@ -899,7 +897,7 @@ async function joinRoom(isCreate) {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (e) {
     setStatus('麦克风权限被拒绝', true);
-    $('btn-join').disabled = false; currentRoom = null;
+    $('btn-create-room').disabled = false; currentRoom = null;
     return;
   }
   if (navigator.audioSession) { navigator.audioSession.type = 'play-and-record'; }
@@ -1228,7 +1226,7 @@ function leaveRoom() {
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
   $('btn-mic').classList.remove('off'); $('btn-mic').textContent = '🎤';
-  $('btn-join').disabled = false;
+  $('btn-create-room').disabled = false;
   setStatus('输入房间名加入');
   drawMap();
 }
