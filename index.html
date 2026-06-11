@@ -339,6 +339,9 @@ let peer = null, mqttClient = null, localStream = null;
 let registryMqtt = null; // 房间注册表MQTT (常驻)
 let audioCtx = null;
 let micOn = true, myPeerId = null, currentRoom = null;
+let profileName = localStorage.getItem('voice-profile-name') || '';
+let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
+initAvatarImg();
 let isRoomCreator = false;
 const peers = new Map();
 const roomList = new Map(); // name → {hasPassword, memberCount}
@@ -1222,9 +1225,7 @@ $('btn-create-room').addEventListener('click', () => {
 });
 
 // ═══════ 角色设置 ═══════
-let profileName = localStorage.getItem('voice-profile-name') || '';
-let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
-initAvatarImg();
+// profileName/profileAvatar moved to top
 function updateProfileUI() {
   $('home-profile-name').textContent = profileName || '未设置角色';
   const ring = $('home-avatar-ring');
