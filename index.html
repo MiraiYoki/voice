@@ -281,9 +281,6 @@ body {
     <div class="joystick-wrap" id="joystick" style="display:none"><div class="stick" id="joystick-stick"></div></div>
   </div>
 
-  <div style="flex-shrink:0;text-align:center;padding:2px 0">
-    <button id="btn-sim" style="display:none;padding:5px 16px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font:11px system-ui;cursor:pointer">🎭 多人模拟</button>
-  </div>
 
   <input type="hidden" id="room-input">
   <input type="hidden" id="room-pw">
@@ -304,6 +301,14 @@ body {
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:100;pointer-events:none;animation:fadeUp .3s ease-out';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 2000);
+}
+
 // ═══════ 空间语音聊天室 ═══════
 // P2P 音频 (PeerJS) + 房间发现 (MQTT) + 空间音频 (Web Audio PannerNode)
 // 拖拽角色移动 → 距离衰减 → 左右声道分离
@@ -1064,7 +1069,7 @@ function $(s) { return document.getElementById(s); }
 
 function showSelf(room) {
   $('self-row').style.display = 'flex';
-  $('btn-sim').style.display = '';
+  // sim button removed
   // join-bar removed
   if (profileAvatar) {
     $('self-color').style.backgroundImage = `url(${profileAvatar})`;
