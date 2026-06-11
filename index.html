@@ -189,7 +189,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v66</span></h1>
+    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v67</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -197,17 +197,17 @@ body {
   <div class="home-panel" id="home-panel">
     <div class="home-cards">
       <div class="home-card starlight-card" id="home-create">
-        <div class="home-card-icon">🏯</div>
+        <div class="home-card-icon"><i data-lucide="plus-circle" style="width:28px;height:28px"></i></div>
         <div class="home-card-title">创建房间</div>
         <div class="home-card-desc">设置名称与密码</div>
       </div>
       <div class="home-card starlight-card" id="home-find">
-        <div class="home-card-icon">🔍</div>
+        <div class="home-card-icon"><i data-lucide="search" style="width:28px;height:28px"></i></div>
         <div class="home-card-title">查找房间</div>
         <div class="home-card-desc">浏览或搜索已有房间</div>
       </div>
       <div class="home-card starlight-card" id="home-profile">
-        <div class="home-card-icon" id="home-avatar-icon">👤</div>
+        <div class="home-card-icon" id="home-avatar-icon"><i data-lucide="user" style="width:28px;height:28px"></i></div>
         <div class="home-card-title">角色设置</div>
         <div class="home-card-desc" id="home-profile-name">未设置角色</div>
       </div>
@@ -245,7 +245,7 @@ body {
     </div>
     <div style="text-align:center;padding:16px 0">
       <label for="avatar-upload" style="cursor:pointer">
-        <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:var(--card);border:2px dashed var(--border);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden">👤</div>
+        <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:var(--card);border:2px dashed var(--border);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:36px;overflow:hidden"><i data-lucide="camera" style="width:32px;height:32px;color:var(--text2)"></i></div>
       </label>
       <input type="file" id="avatar-upload" accept="image/*" style="display:none">
       <div style="font-size:12px;color:var(--text2);margin-bottom:16px">点击头像上传图片</div>
@@ -267,19 +267,20 @@ body {
   <input type="hidden" id="room-pw">
 
   <div class="self-row" id="self-row" style="display:none">
-    <div class="self-avatar" id="self-color">🎙️</div>
+    <div class="self-avatar" id="self-color"><i data-lucide="user" style="width:22px;height:22px"></i></div>
     <div class="self-info">
       <div class="self-name" id="self-name">我</div>
       <div class="self-mic on" id="self-mic">麦克风已开启</div>
     </div>
-    <button class="ctrl-btn mic" id="btn-mic">🎤</button>
-    <button class="ctrl-btn leave" id="btn-leave">🚪</button>
+    <button class="ctrl-btn mic" id="btn-mic"><i data-lucide="mic" style="width:18px;height:18px"></i></button>
+    <button class="ctrl-btn leave" id="btn-leave"><i data-lucide="log-out" style="width:18px;height:18px"></i></button>
   </div>
 
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <script>
 // ═══════ 空间语音聊天室 ═══════
 // P2P 音频 (PeerJS) + 房间发现 (MQTT) + 空间音频 (Web Audio PannerNode)
@@ -329,9 +330,10 @@ function renderRoomList() {
     empty.textContent = search ? '没有匹配的房间' : '还没有房间 · 创建一个吧';
   } else {
     empty.style.display = 'none';
+    lucide.createIcons();
     container.innerHTML = rooms.map(([n, r]) =>
       `<div class="room-card card" onclick="clickRoom('${n}', ${r.hasPassword || false})">
-        <div class="room-icon">${r.hasPassword ? '&#x1F512;' : '&#x1F310;'}</div>
+        <div class="room-icon"><i data-lucide="${r.hasPassword ? 'lock' : 'globe'}" style="width:20px;height:20px"></i></div>
         <div class="room-info"><div class="room-name">${n}</div><div class="room-meta">${r.hasPassword ? '需要密码' : '公开房间'}</div></div>
         <div class="room-count">${r.memberCount || 0}人</div>
       </div>`).join('');
@@ -1135,9 +1137,11 @@ async function toggleMic() {
 
 function updateMicUI(on) {
   const btn = $('btn-mic'), label = $('self-mic');
-  btn.classList.toggle('off', !on); btn.textContent = on ? '🎤' : '🎧';
+  btn.classList.toggle('off', !on);
+  btn.innerHTML = on ? '<i data-lucide="mic" style="width:18px;height:18px"></i>' : '<i data-lucide="mic-off" style="width:18px;height:18px"></i>';
   label.className = 'self-mic ' + (on ? 'on' : 'off');
-  label.textContent = on ? '🎤 发言 · 单声道' : '🎧 收听 · 立体声';
+  label.textContent = on ? '发言中 · 单声道' : '收听中 · 立体声';
+  lucide.createIcons();
 }
 
 function updateRoomCount() {
@@ -1278,6 +1282,7 @@ $('btn-leave').addEventListener('click', () => { if (confirm('退出房间？'))
 $('btn-sim').addEventListener('click', toggleSimMode);
 $('create-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
 $('create-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
+lucide.createIcons();
 </script>
 </body>
 </html>
