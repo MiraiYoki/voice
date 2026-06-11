@@ -161,19 +161,32 @@ body {
 .room-empty { text-align:center; color: var(--text2); padding:40px 24px; font-size:13px; line-height:1.7; }
 
 /* ── Home panel ── */
-.home-panel { flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 4px; }
+.home-panel { flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 8px; }
 .sub-panel { flex:1; overflow-y:auto; padding:4px 4px; }
 .sub-panel::-webkit-scrollbar { width:0; }
-.home-cards { display:flex; flex-direction:column; gap:12px; }
+.home-cards { display:flex; flex-direction:column; gap:16px; }
 .home-card {
-  cursor:pointer; transition: transform .18s ease-out;
-  position:relative; overflow:hidden;
+  display:flex; align-items:center; gap:16px;
+  padding: 24px 20px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  cursor:pointer;
+  transition: border-color .2s, transform .15s, box-shadow .2s;
 }
-.home-card:hover { transform:translateY(-2px); }
-.home-card:active { transform:scale(.97); }
-.home-card-icon { font-size:34px; flex-shrink:0; width:56px; height:56px; border-radius:16px; background:var(--bg-deeper); display:flex; align-items:center; justify-content:center; }
-.home-card-title { font-size:17px; font-weight:640; letter-spacing:-.01em; }
-.home-card-desc { font-size:12px; color:var(--text2); margin-top:4px; }
+.home-card:hover { border-color: var(--accent); transform:translateY(-1px); box-shadow:0 8px 30px oklch(0.62 0.22 305 / 0.08); }
+.home-card:active { transform:scale(.98); }
+.home-card-ring {
+  width:60px; height:60px; border-radius:50%;
+  background: var(--accent-dim);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+  color: var(--accent);
+}
+.home-card-body { flex:1; }
+.home-card-title { font-size:18px; font-weight:650; letter-spacing:-.01em; margin-bottom:4px; }
+.home-card-desc { font-size:13px; color: var(--text2); letter-spacing:.01em; }
+.home-card-arrow { color: var(--text2); opacity:.4; flex-shrink:0; width:20px; height:20px; }
 
 /* ── Back button ── */
 .back-btn {
@@ -189,27 +202,36 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v67</span></h1>
+    <h1><i data-lucide="radio" style="width:20px;height:20px;vertical-align:-3px;margin-right:4px"></i>空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v68</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
   <!-- 首页 -->
   <div class="home-panel" id="home-panel">
     <div class="home-cards">
-      <div class="home-card starlight-card" id="home-create">
-        <div class="home-card-icon"><i data-lucide="plus-circle" style="width:28px;height:28px"></i></div>
-        <div class="home-card-title">创建房间</div>
-        <div class="home-card-desc">设置名称与密码</div>
+      <div class="home-card" id="home-create">
+        <div class="home-card-ring"><i data-lucide="plus" style="width:32px;height:32px"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">创建房间</div>
+          <div class="home-card-desc">设置名称与密码</div>
+        </div>
+        <i data-lucide="chevron-right" class="home-card-arrow"></i>
       </div>
-      <div class="home-card starlight-card" id="home-find">
-        <div class="home-card-icon"><i data-lucide="search" style="width:28px;height:28px"></i></div>
-        <div class="home-card-title">查找房间</div>
-        <div class="home-card-desc">浏览或搜索已有房间</div>
+      <div class="home-card" id="home-find">
+        <div class="home-card-ring"><i data-lucide="search" style="width:32px;height:32px"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">查找房间</div>
+          <div class="home-card-desc">浏览或搜索已有房间</div>
+        </div>
+        <i data-lucide="chevron-right" class="home-card-arrow"></i>
       </div>
-      <div class="home-card starlight-card" id="home-profile">
-        <div class="home-card-icon" id="home-avatar-icon"><i data-lucide="user" style="width:28px;height:28px"></i></div>
-        <div class="home-card-title">角色设置</div>
-        <div class="home-card-desc" id="home-profile-name">未设置角色</div>
+      <div class="home-card" id="home-profile">
+        <div class="home-card-ring" id="home-avatar-ring"><i data-lucide="user" style="width:32px;height:32px"></i></div>
+        <div class="home-card-body">
+          <div class="home-card-title">角色设置</div>
+          <div class="home-card-desc" id="home-profile-name">未设置角色</div>
+        </div>
+        <i data-lucide="chevron-right" class="home-card-arrow"></i>
       </div>
     </div>
   </div>
@@ -1239,11 +1261,12 @@ let profileName = localStorage.getItem('voice-profile-name') || '';
 let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
 function updateProfileUI() {
   $('home-profile-name').textContent = profileName || '未设置角色';
-  $('home-avatar-icon').textContent = profileAvatar ? '' : '👤';
+  const ring = $('home-avatar-ring');
+  ring.innerHTML = profileAvatar ? '' : '<i data-lucide="user" style="width:32px;height:32px"></i>';
   if (profileAvatar) {
-    $('home-avatar-icon').style.backgroundImage = `url(${profileAvatar})`;
-    $('home-avatar-icon').style.backgroundSize = 'cover';
-  }
+    ring.style.backgroundImage = `url(${profileAvatar})`;
+    ring.style.backgroundSize = 'cover';
+  } else { ring.style.backgroundImage = ''; ring.style.backgroundSize = ''; }
   $('profile-name').value = profileName;
   if (profileAvatar) {
     $('avatar-preview').style.backgroundImage = `url(${profileAvatar})`;
