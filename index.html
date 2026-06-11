@@ -185,14 +185,21 @@ body {
 .home-cards { display:flex; flex-direction:column; gap:12px; }
 .home-card {
   background: var(--card); border:1.5px solid var(--border); border-radius: var(--radius);
-  padding: 22px 20px; display:flex; align-items:center; gap:14px;
-  cursor:pointer; transition: border-color .2s, transform .15s ease-out;
+  padding: 24px 22px; display:flex; align-items:center; gap:16px;
+  cursor:pointer; transition: border-color .25s, transform .18s ease-out, box-shadow .25s;
+  position:relative; overflow:hidden;
 }
-.home-card:hover { border-color: var(--accent); transform:translateY(-2px); }
-.home-card:active { transform:scale(.98); }
-.home-card-icon { font-size:32px; flex-shrink:0; width:52px; text-align:center; }
-.home-card-title { font-size:16px; font-weight:640; letter-spacing:-.01em; }
-.home-card-desc { font-size:12px; color:var(--text2); margin-top:3px; }
+.home-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
+  background: radial-gradient(ellipse at right center, var(--accent-dim), transparent 70%);
+  opacity:0; transition:opacity .3s;
+}
+.home-card:hover { border-color: var(--accent); transform:translateY(-2px); box-shadow:0 4px 20px rgba(0,0,0,.15); }
+.home-card:hover::after { opacity:1; }
+.home-card:active { transform:scale(.97); }
+.home-card-icon { font-size:34px; flex-shrink:0; width:56px; height:56px; border-radius:16px; background:var(--bg-deeper); display:flex; align-items:center; justify-content:center; }
+.home-card-title { font-size:17px; font-weight:640; letter-spacing:-.01em; position:relative;z-index:1; }
+.home-card-desc { font-size:12px; color:var(--text2); margin-top:4px; position:relative;z-index:1; }
 
 /* ── Back button ── */
 .back-btn {
@@ -208,7 +215,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v60</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v61</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
@@ -789,26 +796,6 @@ function toggleSimSpeaker(id) {
   s.gain.gain.value = s.on ? 0.7 : 0;
 }
 
-// 画模拟声源 (覆盖原 drawMap)
-const _origDrawMap = drawMap;
-drawMap = function() {
-  _origDrawMap();
-  if (!simActive && simSpeakers.length === 0) return;
-  const w = canvas.width / devicePixelRatio;
-  const h = canvas.height / devicePixelRatio;
-  for (const s of simSpeakers) {
-    const px = (s.x / ROOM_SIZE) * w;
-    const py = (s.y / ROOM_SIZE) * h;
-    const color = s.on ? '#f59e0b' : '#555';
-    ctx.fillStyle = color + '60';
-    ctx.beginPath(); ctx.arc(px, py, 12, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 8px -apple-system'; ctx.textAlign = 'center';
-    ctx.fillText(s.on ? (s.name||s.id) : (s.name||s.id)+'🔇', px, py - 16);
-  }
-};
-
 // ── 自动避让 (Ducking) ──
 let duckTimer = null;
 function startDucking() {
@@ -1059,8 +1046,6 @@ function removePeer(pid) {
   }
   updateRoomCount(); drawMap();
 }
-
-function updateSpatialAudioNow() { updateSpatialAudio(); drawMap(); }
 
 // ═══════ UI ═══════
 function $(s) { return document.getElementById(s); }
