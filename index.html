@@ -12,130 +12,169 @@
 <title>空间语音聊天室</title>
 <style>
 :root {
-  --bg: #0f0f11; --card: #1a1a1f; --text: #e4e4e7;
-  --text2: #71717a; --accent: #22c55e; --danger: #ef4444;
-  --muted: #f59e0b; --border: rgba(255,255,255,0.06);
+  --bg: oklch(0.12 0.015 260);
+  --bg-deeper: oklch(0.09 0.01 260);
+  --card: oklch(0.16 0.012 260);
+  --card-hover: oklch(0.19 0.015 260);
+  --text: oklch(0.91 0 0);
+  --text2: oklch(0.52 0.01 260);
+  --accent: oklch(0.72 0.17 85);
+  --accent-dim: oklch(0.72 0.17 85 / 0.12);
+  --danger: oklch(0.58 0.21 22);
+  --danger-dim: oklch(0.58 0.21 22 / 0.12);
+  --border: oklch(0.24 0.01 260);
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 18px;
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: oklch(0.96 0.005 260);
+    --bg-deeper: oklch(0.92 0.008 260);
+    --card: oklch(0.98 0.002 260);
+    --card-hover: oklch(0.94 0.01 260);
+    --text: oklch(0.15 0.01 260);
+    --text2: oklch(0.45 0.01 260);
+    --accent: oklch(0.58 0.18 75);
+    --accent-dim: oklch(0.58 0.18 75 / 0.1);
+    --danger: oklch(0.52 0.2 22);
+    --danger-dim: oklch(0.52 0.2 22 / 0.1);
+    --border: oklch(0.85 0.01 260);
+  }
+}
+
+* { margin:0;padding:0;box-sizing:border-box; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
-  background: var(--bg); color: var(--text);
-  height: 100dvh; height: 100vh;
-  display: flex; justify-content: center;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  background: var(--bg);
+  background-image: radial-gradient(ellipse 80% 60% at 50% 30%, oklch(0.72 0.17 85 / 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 80% 80%, oklch(0.55 0.15 230 / 0.03) 0%, transparent 70%);
+  color: var(--text); height: 100dvh; display: flex; justify-content: center;
   -webkit-font-smoothing: antialiased; overflow: hidden;
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  position: fixed; top:0; left:0; right:0; bottom:0;
 }
 .app {
   width: 100%; max-width: 520px; height: 100%;
-  display: flex; flex-direction: column; padding: 8px; gap: 6px;
+  display: flex; flex-direction: column; padding: 12px 14px; gap: 10px;
 }
 
 /* ── Header ── */
-.header { text-align: center; padding: 2px 0; flex-shrink: 0; }
-.header h1 { font-size: 16px; font-weight: 590; letter-spacing: -0.02em; margin: 0; }
-.header .status { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.header { text-align: center; padding: 6px 0 2px; flex-shrink: 0; }
+.header h1 { font-size: 17px; font-weight: 640; letter-spacing: -0.025em; margin:0; color: var(--text); }
+.header .status { font-size: 11px; color: var(--text2); margin-top: 3px; letter-spacing: 0.01em; }
 .status.online { color: var(--accent); }
 .status.error { color: var(--danger); }
 .room-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(34,197,94,0.1); color: var(--accent);
-  padding: 3px 10px; border-radius: 16px; font-size: 11px; font-weight: 510;
+  display: inline-flex; align-items:center; gap:5px;
+  background: var(--accent-dim); color: var(--accent);
+  padding: 3px 11px; border-radius: 20px; font-size: 11px; font-weight: 540;
 }
-.room-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.room-badge .dot { width:6px; height:6px; border-radius:50%; background: var(--accent); animation: pulse-dot 2s ease-in-out infinite; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
 
 /* ── Map ── */
 .map-wrap {
-  flex: 1; min-height: 120px;
-  background: var(--card); border-radius: 14px;
+  flex:1; min-height:120px;
+  background: var(--card); border-radius: var(--radius);
   border: 1px solid var(--border); overflow: hidden; position: relative;
 }
-.map-wrap canvas { display: block; width: 100%; height: 100%; cursor: grab; }
-.map-wrap canvas:active { cursor: grabbing; }
+.map-wrap canvas { display:block; width:100%; height:100%; cursor:grab; }
+.map-wrap canvas:active { cursor:grabbing; }
 .map-hint {
-  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-  font-size: 10px; color: var(--text2); opacity: 0.6;
-  pointer-events: none;
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  font-size:10px; color: var(--text2); opacity:.5; letter-spacing:.02em;
+  pointer-events:none;
 }
 
 /* ── Self card ── */
 .self-row {
-  background: var(--card); border-radius: 14px;
-  padding: 8px 14px; display: flex; align-items: center; gap: 10px;
-  border: 1px solid var(--border); flex-shrink: 0;
+  background: var(--card); border-radius: var(--radius);
+  padding: 10px 16px; display:flex; align-items:center; gap:12px;
+  border: 1px solid var(--border); flex-shrink:0;
 }
 .self-avatar {
-  width: 38px; height: 38px; border-radius: 50%;
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
+  width:40px; height:40px; border-radius:50%;
+  background: linear-gradient(135deg, oklch(0.55 0.2 260), oklch(0.65 0.2 290));
+  display:flex; align-items:center; justify-content:center;
+  font-size: 18px; flex-shrink:0;
 }
-.self-info { flex: 1; }
-.self-name { font-size: 14px; font-weight: 590; }
-.self-mic { font-size: 11px; }
+.self-info { flex:1; }
+.self-name { font-size:14px; font-weight:590; letter-spacing:-0.01em; }
+.self-mic { font-size:11px; letter-spacing:.01em; }
 .self-mic.on { color: var(--accent); }
 .self-mic.off { color: var(--danger); }
 .ctrl-btn {
-  width: 36px; height: 36px; border-radius: 50%; border: none;
-  font-size: 15px; cursor: pointer; transition: all 0.15s;
-  display: flex; align-items: center; justify-content: center;
+  width:38px; height:38px; border-radius:50%; border:none;
+  font-size:15px; cursor:pointer; transition: transform .12s ease-out, background .2s;
+  display:flex; align-items:center; justify-content:center;
 }
-.ctrl-btn.mic { background: rgba(34,197,94,0.12); color: var(--accent); }
-.ctrl-btn.mic.off { background: rgba(239,68,68,0.12); color: var(--danger); }
-.ctrl-btn.leave { background: rgba(239,68,68,0.1); color: var(--danger); }
+.ctrl-btn:active { transform:scale(.92); }
+.ctrl-btn.mic { background: var(--accent-dim); color: var(--accent); }
+.ctrl-btn.mic.off { background: var(--danger-dim); color: var(--danger); }
+.ctrl-btn.leave { background: var(--danger-dim); color: var(--danger); }
 
 /* ── Join bar ── */
 .join-bar {
-  display: flex; gap: 8px; padding: 8px 14px;
-  background: var(--card); border-radius: 14px;
-  border: 1px solid var(--border); flex-shrink: 0;
+  display:flex; gap:8px; padding: 10px 14px;
+  background: var(--card); border-radius: var(--radius);
+  border:1px solid var(--border); flex-shrink:0;
 }
 .join-bar input {
-  flex: 1; border: none; background: transparent;
-  color: var(--text); font: 14px -apple-system, sans-serif;
-  outline: none; letter-spacing: -0.01em;
+  flex:1; border:none; background:transparent;
+  color: var(--text); font:14px/1.4 system-ui, -apple-system, sans-serif;
+  outline:none; letter-spacing:-.01em; min-width:0;
 }
 .join-bar input::placeholder { color: var(--text2); }
 .join-bar button {
-  padding: 7px 16px; border-radius: 9px; border: none;
-  background: var(--accent); color: #000; font-weight: 590;
-  font: 13px -apple-system, sans-serif; cursor: pointer;
+  padding: 8px 18px; border-radius: var(--radius-sm); border:none;
+  background: var(--accent); color: var(--bg); font-weight:600;
+  font:13px/1 system-ui, -apple-system, sans-serif; cursor:pointer;
+  letter-spacing:-.01em; transition: transform .12s ease-out, filter .2s;
 }
-.join-bar button:disabled { opacity: 0.4; }
+.join-bar button:active { transform:scale(.96); }
+.join-bar button:disabled { opacity:.35; filter:grayscale(.3); }
+#btn-create { background: var(--card); color: var(--text); border:1px solid var(--border); }
 
 /* ── Room list panel ── */
-.room-panel { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 0 4px; }
-.room-panel .search-bar { display: flex; gap: 6px; margin-bottom: 4px; }
+.room-panel { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:0 2px; }
+.room-panel::-webkit-scrollbar { width:0; }
+.room-panel .search-bar { display:flex; gap:6px; margin-bottom:2px; position:sticky; top:0; z-index:2; }
 .room-panel .search-bar input {
-  flex: 1; border: 1px solid var(--border); border-radius: 10px;
-  background: var(--card); color: var(--text); padding: 8px 12px;
-  font: 13px -apple-system, sans-serif; outline: none;
+  flex:1; border:1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--text); padding: 10px 14px;
+  font:13px system-ui, -apple-system, sans-serif; outline:none; transition: border-color .2s;
 }
+.room-panel .search-bar input:focus { border-color: var(--accent); }
 .room-card {
-  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-  padding: 12px 14px; display: flex; align-items: center; gap: 10px;
-  cursor: pointer; transition: all 0.15s;
+  background: var(--card); border:1.5px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; display:flex; align-items:center; gap:12px;
+  cursor:pointer; transition: border-color .2s, transform .15s ease-out;
 }
-.room-card:hover { border-color: rgba(34,197,94,0.3); }
-.room-card .room-icon { font-size: 20px; flex-shrink: 0; }
-.room-card .room-info { flex: 1; }
-.room-card .room-name { font-size: 14px; font-weight: 590; }
-.room-card .room-meta { font-size: 11px; color: var(--text2); }
-.room-card .room-count { font-size: 12px; color: var(--accent); font-weight: 590; white-space: nowrap; }
-.room-empty { text-align: center; color: var(--text2); padding: 32px; font-size: 13px; line-height: 1.6; }
+.room-card:hover { border-color: var(--accent); transform:translateY(-1px); }
+.room-card .room-icon { font-size:22px; flex-shrink:0; }
+.room-card .room-info { flex:1; min-width:0; }
+.room-card .room-name { font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.room-card .room-meta { font-size:11px; color: var(--text2); margin-top:2px; }
+.room-card .room-count {
+  font-size:12px; color: var(--accent); font-weight:640;
+  background: var(--accent-dim); padding:4px 10px; border-radius:12px;
+  white-space:nowrap; flex-shrink:0;
+}
+.room-empty { text-align:center; color: var(--text2); padding:40px 24px; font-size:13px; line-height:1.7; }
 
 /* ── Spatial mode selector ── */
 .spatial-select {
-  display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap;
+  display:flex; gap:4px; flex-shrink:0; flex-wrap:wrap;
 }
 .spatial-select button {
-  flex: 1; min-width: 48px; padding: 5px 8px; border-radius: 7px;
-  border: 1px solid var(--border); background: transparent;
-  color: var(--text2); font: 10px -apple-system, sans-serif;
-  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  flex:1; min-width:44px; padding:6px 8px; border-radius:8px;
+  border:1px solid var(--border); background:transparent;
+  color: var(--text2); font:10.5px system-ui, -apple-system, sans-serif;
+  font-weight:520; cursor:pointer; transition:all .15s; white-space:nowrap;
 }
 .spatial-select button.active {
-  background: rgba(34,197,94,0.12); color: var(--accent);
-  border-color: rgba(34,197,94,0.3);
+  background: var(--accent-dim); color: var(--accent);
+  border-color: oklch(0.72 0.17 85 / 0.4);
 }
 </style>
 </head>
@@ -143,7 +182,7 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v54</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v55</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
