@@ -91,18 +91,20 @@ body {
 
 /* ── Joystick ── */
 .joystick-wrap {
-  position:absolute; bottom:20px; right:20px;
-  width:100px; height:100px; border-radius:50%;
-  background: var(--card);
-  border: 2px solid var(--border);
+  position:absolute; bottom:24px; right:24px; z-index:5;
+  width:110px; height:110px; border-radius:50%;
+  background: oklch(0.20 0.02 280 / 0.85);
+  border: 3px solid oklch(0.62 0.22 305 / 0.5);
   touch-action:none; user-select:none; -webkit-user-select:none;
   display:flex; align-items:center; justify-content:center;
+  box-shadow:0 0 20px oklch(0.62 0.22 305 / 0.15);
 }
 .joystick-wrap .stick {
-  width:40px; height:40px; border-radius:50%;
-  background: oklch(0.62 0.22 305 / 0.6);
+  width:44px; height:44px; border-radius:50%;
+  background: oklch(0.62 0.22 305 / 0.8);
   transition: transform .05s linear;
   pointer-events:none;
+  box-shadow:0 0 12px oklch(0.62 0.22 305 / 0.4);
 }
 .joystick-wrap.active { border-color: var(--accent); }
 .joystick-wrap.active .stick { background: var(--accent); }
@@ -1231,7 +1233,7 @@ function leaveRoom() {
   // 始终可见
   $('self-name').textContent = '我';
   $('self-mic').className = 'self-mic on'; $('self-mic').textContent = '麦克风已开启';
-  $('btn-mic').classList.remove('off'); $('btn-mic').textContent = '🎤';
+  $('btn-mic').classList.remove('off'); $('btn-mic').innerHTML = '<i data-lucide="mic" style="width:18px;height:18px"></i>'; lucide.createIcons();
   $('btn-create-room').disabled = false;
   setStatus('输入房间名加入');
   drawMap();
