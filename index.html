@@ -212,7 +212,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v101</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v102</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -343,7 +343,8 @@ const roomList = new Map();
 let profileName = localStorage.getItem('voice-profile-name') || '';
 let profileAvatar = localStorage.getItem('voice-profile-avatar') || '';
 const _avatarImg = new Image();
-if (profileAvatar) _avatarImg.src = profileAvatar;
+if (profileAvatar) { _avatarImg.src = profileAvatar; }
+_avatarImg.onload = function() { drawMap(); };
 
 // ═══════ MQTT 房间注册表 (常驻连接) ═══════
 function connectRegistry() {
@@ -446,6 +447,7 @@ function screenToWorld(sx, sy) { return { x: sx + cameraX, y: sy + cameraY }; }
 drawMap();  // 初始空房间
 
 function drawMap() {
+  if (canvas.width === 0 || canvas.height === 0) return; // canvas 未就绪
   const w = canvas.width / devicePixelRatio;
   const h = canvas.height / devicePixelRatio;
   ctx.clearRect(0, 0, w, h);
