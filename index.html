@@ -47,7 +47,6 @@
 }
 
 * { margin:0;padding:0;box-sizing:border-box; }
-html { touch-action: manipulation; }
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 body {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
@@ -157,7 +156,7 @@ body {
 .room-card {
   display:flex !important; align-items:center; gap:12px; padding: 14px 16px !important;
   background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius);
-  cursor:pointer; transition: transform .15s ease-out;
+  cursor:pointer; touch-action: manipulation; transition: transform .15s ease-out;
 }
 .room-card:hover { border-color: var(--accent); transform:translateY(-1px); }
 .room-card .room-icon { font-size:22px; flex-shrink:0; }
@@ -182,7 +181,7 @@ body {
   background: var(--card) !important;
   border: 1.5px solid var(--border) !important;
   border-radius: 20px !important;
-  cursor:pointer;
+  cursor:pointer; touch-action: manipulation;
   transition: border-color .2s, transform .15s, box-shadow .2s;
 }
 .home-card:hover { border-color: var(--accent); transform:translateY(-1px); box-shadow:0 8px 30px oklch(0.62 0.22 305 / 0.08); }
