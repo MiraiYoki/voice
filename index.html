@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<link rel="stylesheet" href="https://unpkg.com/@howssatoshi/quantumcss/dist/quantum.min.css">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -144,11 +145,10 @@ body {
 }
 .room-panel .search-bar input:focus { border-color: var(--accent); }
 .room-card {
-  background: var(--card); border:1.5px solid var(--border); border-radius: var(--radius);
-  padding: 14px 16px; display:flex; align-items:center; gap:12px;
-  cursor:pointer; transition: border-color .2s, transform .15s ease-out;
+  display:flex; align-items:center; gap:12px; padding: 14px 16px;
+  cursor:pointer; transition: transform .15s ease-out;
 }
-.room-card:hover { border-color: var(--accent); transform:translateY(-1px); }
+.room-card:hover { transform:translateY(-1px); }
 .room-card .room-icon { font-size:22px; flex-shrink:0; }
 .room-card .room-info { flex:1; min-width:0; }
 .room-card .room-name { font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -166,22 +166,14 @@ body {
 .sub-panel::-webkit-scrollbar { width:0; }
 .home-cards { display:flex; flex-direction:column; gap:12px; }
 .home-card {
-  background: var(--card); border:1.5px solid var(--border); border-radius: var(--radius);
-  padding: 24px 22px; display:flex; align-items:center; gap:16px;
-  cursor:pointer; transition: border-color .25s, transform .18s ease-out, box-shadow .25s;
+  cursor:pointer; transition: transform .18s ease-out;
   position:relative; overflow:hidden;
 }
-.home-card::after {
-  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
-  background: radial-gradient(ellipse at right center, var(--accent-dim), transparent 70%);
-  opacity:0; transition:opacity .3s;
-}
-.home-card:hover { border-color: var(--accent); transform:translateY(-2px); box-shadow:0 4px 20px rgba(0,0,0,.15); }
-.home-card:hover::after { opacity:1; }
+.home-card:hover { transform:translateY(-2px); }
 .home-card:active { transform:scale(.97); }
 .home-card-icon { font-size:34px; flex-shrink:0; width:56px; height:56px; border-radius:16px; background:var(--bg-deeper); display:flex; align-items:center; justify-content:center; }
-.home-card-title { font-size:17px; font-weight:640; letter-spacing:-.01em; position:relative;z-index:1; }
-.home-card-desc { font-size:12px; color:var(--text2); margin-top:4px; position:relative;z-index:1; }
+.home-card-title { font-size:17px; font-weight:640; letter-spacing:-.01em; }
+.home-card-desc { font-size:12px; color:var(--text2); margin-top:4px; }
 
 /* ── Back button ── */
 .back-btn {
@@ -197,24 +189,24 @@ body {
 
 <div class="app">
   <div class="header">
-    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v65</span></h1>
+    <h1>🗺️ 空间语音聊天室 <span style="font-size:10px;color:var(--accent);background:rgba(34,197,94,0.1);padding:2px 6px;border-radius:8px">v66</span></h1>
     <div id="status-line"><span class="status" id="status">输入房间名加入</span></div>
   </div>
 
   <!-- 首页 -->
   <div class="home-panel" id="home-panel">
     <div class="home-cards">
-      <div class="home-card" id="home-create">
+      <div class="home-card starlight-card" id="home-create">
         <div class="home-card-icon">🏯</div>
         <div class="home-card-title">创建房间</div>
         <div class="home-card-desc">设置名称与密码</div>
       </div>
-      <div class="home-card" id="home-find">
+      <div class="home-card starlight-card" id="home-find">
         <div class="home-card-icon">🔍</div>
         <div class="home-card-title">查找房间</div>
         <div class="home-card-desc">浏览或搜索已有房间</div>
       </div>
-      <div class="home-card" id="home-profile">
+      <div class="home-card starlight-card" id="home-profile">
         <div class="home-card-icon" id="home-avatar-icon">👤</div>
         <div class="home-card-title">角色设置</div>
         <div class="home-card-desc" id="home-profile-name">未设置角色</div>
@@ -231,7 +223,7 @@ body {
     <div style="display:flex;flex-direction:column;gap:12px">
       <input id="create-name" placeholder="房间名称" style="padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font:15px system-ui;outline:none">
       <input id="create-pw" placeholder="密码 (可选)" type="password" style="padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--card);color:var(--text);font:15px system-ui;outline:none">
-      <button id="btn-create-room" style="padding:12px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:#fff;font:15px system-ui;font-weight:600;cursor:pointer">创建并进入</button>
+      <button id="btn-create-room" class="btn-primary" style="width:100%;padding:12px;font-size:15px">创建并进入</button>
     </div>
   </div>
 
@@ -338,7 +330,7 @@ function renderRoomList() {
   } else {
     empty.style.display = 'none';
     container.innerHTML = rooms.map(([n, r]) =>
-      `<div class="room-card" onclick="clickRoom('${n}', ${r.hasPassword || false})">
+      `<div class="room-card card" onclick="clickRoom('${n}', ${r.hasPassword || false})">
         <div class="room-icon">${r.hasPassword ? '&#x1F512;' : '&#x1F310;'}</div>
         <div class="room-info"><div class="room-name">${n}</div><div class="room-meta">${r.hasPassword ? '需要密码' : '公开房间'}</div></div>
         <div class="room-count">${r.memberCount || 0}人</div>
