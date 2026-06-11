@@ -91,31 +91,22 @@ body {
 
 /* ── Joystick ── */
 .joystick-wrap {
-  position:absolute; bottom:24px; right:24px; z-index:5;
-  width:110px; height:110px; border-radius:50%;
+  width:90px; height:90px; border-radius:50%; flex-shrink:0;
   background: oklch(0.20 0.02 280 / 0.9);
-  border: 3px solid oklch(0.62 0.22 305 / 0.6);
+  border: 2px solid oklch(0.62 0.22 305 / 0.5);
   touch-action:none; user-select:none; -webkit-user-select:none;
   display:flex; align-items:center; justify-content:center;
-  box-shadow:0 0 24px oklch(0.62 0.22 305 / 0.2);
-  animation: joystick-pulse 3s ease-in-out infinite;
-}
-@keyframes joystick-pulse {
-  0%,100% { box-shadow:0 0 24px oklch(0.62 0.22 305 / 0.2); }
-  50% { box-shadow:0 0 36px oklch(0.62 0.22 305 / 0.35); }
 }
 .joystick-wrap .stick {
-  width:44px; height:44px; border-radius:50%;
+  width:36px; height:36px; border-radius:50%;
   background: oklch(0.62 0.22 305 / 0.8);
-  transition: transform .05s linear;
   pointer-events:none;
-  box-shadow:0 0 12px oklch(0.62 0.22 305 / 0.4);
 }
 .joystick-wrap.active { border-color: var(--accent); }
 .joystick-wrap.active .stick { background: var(--accent); }
 
 /* ── Self card ── */
-.self-row {
+/* self-row removed */ .x-removed- {
   background: var(--card) !important; border-radius: var(--radius) !important;
   padding: 12px 18px; display:flex; align-items:center; gap:14px;
   border: 2px solid var(--accent) !important; flex-shrink:0;
@@ -285,23 +276,24 @@ body {
 
   <div class="map-wrap" id="map-wrap" style="display:none">
     <canvas id="map"></canvas>
-    <div class="map-hint">拖拽移动 · 距离越近声音越大</div>
-    <div class="joystick-wrap" id="joystick" style="display:none"><div class="stick" id="joystick-stick"></div></div>
   </div>
 
+  <!-- 底部控制栏: 摇杆 + 信息 + 按钮 -->
+  <div id="game-bar" style="display:none;flex-shrink:0;align-items:center;gap:10px;padding:4px 0">
+    <div class="joystick-wrap" id="joystick"><div class="stick" id="joystick-stick"></div></div>
+    <div style="flex:1;display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:10px 14px">
+      <div id="self-color" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,oklch(0.55 0.2 260),oklch(0.65 0.2 290));display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="user" style="width:20px;height:20px"></i></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="self-name">我</div>
+        <div style="font-size:11px" id="self-mic">发言中</div>
+      </div>
+      <button id="btn-mic" style="width:48px;height:48px;border-radius:50%;border:none;background:var(--accent-dim);color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="mic" style="width:22px;height:22px"></i></button>
+      <button id="btn-leave" style="width:36px;height:36px;border-radius:50%;border:none;background:var(--danger-dim);color:var(--danger);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i data-lucide="log-out" style="width:16px;height:16px"></i></button>
+    </div>
+  </div>
 
   <input type="hidden" id="room-input">
   <input type="hidden" id="room-pw">
-
-  <div class="self-row" id="self-row" style="display:none">
-    <div class="self-avatar" id="self-color"><i data-lucide="user" style="width:22px;height:22px"></i></div>
-    <div class="self-info">
-      <div class="self-name" id="self-name">我</div>
-      <div class="self-mic on" id="self-mic">麦克风已开启</div>
-    </div>
-    <button class="ctrl-btn mic" id="btn-mic"><i data-lucide="mic" style="width:18px;height:18px"></i></button>
-    <button class="ctrl-btn leave" id="btn-leave"><i data-lucide="log-out" style="width:18px;height:18px"></i></button>
-  </div>
 
 </div>
 
@@ -1016,7 +1008,7 @@ function removePeer(pid) {
 function $(s) { return document.getElementById(s); }
 
 function showSelf(room) {
-  $('self-row').style.display = 'flex';
+  $('game-bar').style.display = 'flex';
   // sim button removed
   // join-bar removed
   if (profileAvatar) {
@@ -1171,7 +1163,7 @@ function leaveRoom() {
 
   myPeerId = null; currentRoom = null; micOn = true; myPos = { x: ROOM_SIZE/2, y: ROOM_SIZE/2 };
 
-  $('self-row').style.display = 'none';
+  $('game-bar').style.display = 'none';
   $('home-panel').style.display = '';
   ['room-panel','profile-panel','create-panel','map-wrap'].forEach(id => { if($(id)) $(id).style.display = 'none'; });
   $('joystick').style.display = 'none';
