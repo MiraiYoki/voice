@@ -313,13 +313,6 @@ body {
 
 </div>
 
-<script>
-// 强制清空所有Service Worker缓存
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-  caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
-}
-</script>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.3/dist/mqtt.min.js"></script>
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
@@ -1329,6 +1322,8 @@ $('btn-leave').addEventListener('click', () => { if (confirm('退出房间？'))
 $('create-name').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
 $('create-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('btn-create-room').click(); });
 lucide.createIcons();
+try { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(r => r.forEach(x => x.unregister())); } } catch(e) {}
+try { caches.keys().then(k => k.forEach(x => caches.delete(x))); } catch(e) {}
 </script>
 </body>
 </html>
