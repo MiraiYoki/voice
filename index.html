@@ -313,7 +313,7 @@ const LIVEKIT_URL = 'wss://na-me-w74jiom6.livekit.cloud';
 const LIVEKIT_KEY = 'APIRtqTqfEQfH7r';
 const LIVEKIT_SECRET = 'AvUFkm4bmxA0bzNm82RyhhgzsD8YTHCieZfOlceS0cXB';
 const ROOM_SIZE = 800; // 房间尺寸 (px) — 对应虚拟空间 20m×20m
-const POS_INTERVAL = 16; // 位置广播间隔 (ms) — ~60fps
+const POS_INTERVAL = 50; // 位置广播间隔 (ms)
 const COLORS = ['#4f46e5','#7c3aed','#db2777','#ea580c','#16a34a','#0891b2','#ca8a04',
   '#9333ea','#e11d48','#65a30d','#0d9488','#b45309','#1d4ed8','#2563eb'];
 
@@ -465,9 +465,18 @@ function drawMap() {
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // 其他人 (位置lerp平滑)
+  // 其他人 (位置预测插值)
   for (var [pid, p] of peers) {
-    if (p._targetX !== undefined) { p.x += (p._targetX - p.x) * 0.3; p.y += (p._targetY - p.y) * 0.3; }
+    if (p._targetX !== undefined) {
+      // 速度预测: 上次位置 + 速度×时间
+      var elapsed = (Date.now() - (p._lastPosT || Date.now())) / 1000;
+      var predX = p._targetX + (p._vx || 0) * Math.min(elapsed, 0.5);
+      var predY = p._targetY + (p._vy || 0) * Math.min(elapsed, 0.5);
+      var errX = Math.abs(predX - p.x), errY = Math.abs(predY - p.y);
+      var rate = Math.max(0.12, Math.min(0.6, (errX + errY) / 150));
+      p.x += (predX - p.x) * rate;
+      p.y += (predY - p.y) * rate;
+    }
   }
   for (const [pid, p] of peers) {
     const wx = (p.x / ROOM_SIZE) * worldW, wy = (p.y / ROOM_SIZE) * worldH;
@@ -645,7 +654,7 @@ function joystickLoop() {
     joystickRAF = requestAnimationFrame(joystickLoop);
     return;
   }
-  const speed = 4; // 每帧移动像素
+  const speed = 1.2; // 每帧移动像素
   myPos.x += joystickDX * speed;
   myPos.y += joystickDY * speed;
   // 相机跟随但允许玩家超出视野
@@ -680,15 +689,18 @@ document.addEventListener('keydown', (e) => {
   drawMap();
 });
 
-let lastPosBroadcast = 0;
+let lastPosBroadcast = 0, _lastX = 0, _lastY = 0, _lastT = 0;
 function broadcastPosition() {
   const now = Date.now();
   if (now - lastPosBroadcast < POS_INTERVAL) return;
   lastPosBroadcast = now;
+  var dt = (now - _lastT) / 1000;
+  var vx = dt > 0 ? (myPos.x - _lastX) / dt : 0;
+  var vy = dt > 0 ? (myPos.y - _lastY) / dt : 0;
+  _lastX = myPos.x; _lastY = myPos.y; _lastT = now;
   if (mqttClient && currentRoom) {
-    const speaking = Object.values(Object.fromEntries(peers)).some(p => (p.smoothedVol||0) > 10) || false;
     mqttClient.publish('voice-room/' + currentRoom + '/pos', JSON.stringify({
-      peerId: myPeerId, x: myPos.x, y: myPos.y, micOn, speaking
+      peerId: myPeerId, x: myPos.x, y: myPos.y, vx: Math.round(vx), vy: Math.round(vy), micOn, speaking: Object.values(Object.fromEntries(peers)).some(p => (p.smoothedVol||0) > 10)
     }));
   }
 }
@@ -941,12 +953,19 @@ async function joinRoom(isCreate) {
   lkRoom.connect(LIVEKIT_URL, jwt).then(function() {
     console.log('LiveKit connected');
     // 发布本地音频
+    console.log('LiveKit connected, localStream=', !!localStream);
     if (localStream) {
       var audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) lkRoom.localParticipant.publishTrack(audioTrack, { name: 'mic' });
+      console.log('publishing track, exists=', !!audioTrack, 'enabled=', audioTrack ? audioTrack.enabled : 'N/A');
+      if (audioTrack) {
+        lkRoom.localParticipant.publishTrack(audioTrack, { name: 'mic' }).then(function() {
+          console.log('track published OK');
+        }).catch(function(e) { console.error('publish failed', e); });
+      }
     }
     // 接收远端音频 → 空间音频管线
     lkRoom.on('trackSubscribed', function(track, pub, participant) {
+      console.log('trackSubscribed:', track.kind, 'from', participant.identity);
       if (track.kind !== 'audio') return;
       var remoteStream = new MediaStream([track.mediaStreamTrack]);
       var pid = participant.identity;
@@ -990,6 +1009,13 @@ async function joinRoom(isCreate) {
   mqttClient.publish('voice-room/' + room + '/announce', JSON.stringify(ann));
     // 定时广播位置 + 心跳
     posTimer = setInterval(broadcastPosition, POS_INTERVAL);
+    // 每5秒刷新announce (保活+头像更新)
+    setInterval(function() {
+      if (!currentRoom) return;
+      mqttClient.publish('voice-room/' + room + '/peer/' + myPeerId, JSON.stringify({
+        peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: micOn, avatar: profileAvatar || ''
+      }), { retain: true });
+    }, 5000);
     setInterval(function() {
       if (currentRoom) mqttClient.publish('voice-room/' + room + '/heartbeat', myPeerId);
     }, 10000);
@@ -1065,7 +1091,13 @@ function setupAudioNodes(pid, remoteStream) {
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
-      if (p) { p._targetX = data.x; p._targetY = data.y; p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+      if (p) { p._targetX = data.x; p._targetY = data.y; p._vx = data.vx || 0; p._vy = data.vy || 0; p._lastPosT = Date.now(); p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+      else {
+        // 收到陌生peer的位置→补发自己的announce
+        mqttClient.publish('voice-room/' + room + '/peer/' + myPeerId, JSON.stringify({
+          peerId: myPeerId, x: myPos.x, y: myPos.y, name: profileName, micOn: micOn, avatar: profileAvatar || ''
+        }), { retain: true });
+      }
     }
     if (type === 'heartbeat') {
       const pid = msg.toString();
