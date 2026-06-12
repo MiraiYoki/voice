@@ -465,18 +465,22 @@ function drawMap() {
   for (let x = gs; x < w; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-  // 其他人 (位置预测插值)
+  // 快照插值: 100ms延迟换绝对丝滑
+  var RENDER_DELAY = 100, now = Date.now();
   for (var [pid, p] of peers) {
-    if (p._targetX !== undefined) {
-      // 速度预测: 上次位置 + 速度×时间
-      var elapsed = (Date.now() - (p._lastPosT || Date.now())) / 1000;
-      var predX = p._targetX + (p._vx || 0) * Math.min(elapsed, 0.5);
-      var predY = p._targetY + (p._vy || 0) * Math.min(elapsed, 0.5);
-      var errX = Math.abs(predX - p.x), errY = Math.abs(predY - p.y);
-      var rate = Math.max(0.12, Math.min(0.6, (errX + errY) / 150));
-      p.x += (predX - p.x) * rate;
-      p.y += (predY - p.y) * rate;
+    var snaps = p._snaps;
+    if (!snaps || snaps.length < 2) continue;
+    var targetT = now - RENDER_DELAY;
+    // 找目标时间点前后的两个快照
+    var a = snaps[0], b = snaps[snaps.length - 1];
+    for (var i = 0; i < snaps.length - 1; i++) {
+      if (snaps[i].t <= targetT && snaps[i + 1].t >= targetT) { a = snaps[i]; b = snaps[i + 1]; break; }
     }
+    // 线性插值
+    var range = b.t - a.t || 1;
+    var ratio = Math.max(0, Math.min(1, (targetT - a.t) / range));
+    p.x = a.x + (b.x - a.x) * ratio;
+    p.y = a.y + (b.y - a.y) * ratio;
   }
   for (const [pid, p] of peers) {
     const wx = (p.x / ROOM_SIZE) * worldW, wy = (p.y / ROOM_SIZE) * worldH;
@@ -1091,7 +1095,14 @@ function setupAudioNodes(pid, remoteStream) {
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
       const p = peers.get(data.peerId);
-      if (p) { p._targetX = data.x; p._targetY = data.y; p._vx = data.vx || 0; p._vy = data.vy || 0; p._lastPosT = Date.now(); p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking; updateSpatialAudio(); drawMap(); }
+      if (p) {
+        // 快照插值: 存位置历史
+        if (!p._snaps) p._snaps = [];
+        p._snaps.push({ x: data.x, y: data.y, t: Date.now() });
+        if (p._snaps.length > 20) p._snaps.shift();
+        p.micOn = data.micOn !== false; p.isSpeaking = !!data.speaking;
+        updateSpatialAudio(); drawMap();
+      }
       else {
         // 收到陌生peer的位置→补发自己的announce
         mqttClient.publish('voice-room/' + room + '/peer/' + myPeerId, JSON.stringify({
