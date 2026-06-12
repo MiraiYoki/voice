@@ -1,8 +1,8 @@
-# LiveKit 服务器配置
+# LiveKit 服务器配置 - Cloudflare隧道用
 port: 7880
 rtc:
-  tcp_port: 7881
-  use_external_ip: false
+  tcp_port: 7880
+  use_external_ip: true
   port_range_start: 7880
   port_range_end: 7880
 keys:
