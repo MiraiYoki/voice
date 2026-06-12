@@ -479,7 +479,7 @@ function drawMap() {
   // 自己
   const mx = (myPos.x / ROOM_SIZE) * worldW, my = (myPos.y / ROOM_SIZE) * worldH;
   const ms = worldToScreen(mx, my);
-  const selfSpeaking = Object.values(Object.fromEntries(peers)).some(p => (p.smoothedVol||0) > 15);
+  const selfSpeaking = micOn;
   drawAvatar(ms.x, ms.y, '#22c55e', profileName || '我', true, micOn, selfSpeaking);
 
   // Ping 波纹
@@ -501,20 +501,24 @@ function drawMap() {
 
 function drawAvatar(x, y, color, label, isSelf, micOn, isSpeaking, ext) {
   var r = 20, avatarImg = isSelf ? _avatarImg : (ext && ext._avatarImg);
-  // 说话波纹
+  var t = Date.now() * 0.001; // 持续动画用时间戳
+  // 说话呼吸动画 (内圈 + 外圈持续波动)
   if (isSpeaking) {
-    ctx.strokeStyle = 'rgba(34,197,94,0.6)';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(x, y, r + 8, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(34,197,94,0.2)';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(x, y, r + 16, 0, Math.PI * 2); ctx.stroke();
+    var alpha1 = 0.18 + Math.sin(t * 3) * 0.06;
+    var alpha2 = 0.08 + Math.sin(t * 3 + 1) * 0.03;
+    ctx.strokeStyle = 'rgba(34,197,94,' + alpha1 + ')';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, r + 6, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(34,197,94,' + alpha2 + ')';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, y, r + 12, 0, Math.PI * 2); ctx.stroke();
   }
-  // 麦状态光环
+  // 麦状态光环 (淡色持续可见)
   if (micOn !== undefined) {
-    ctx.strokeStyle = micOn ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI * 2); ctx.stroke();
+    var micAlpha = isSpeaking ? (0.22 + Math.sin(t * 3) * 0.06) : 0.18;
+    ctx.strokeStyle = micOn ? 'rgba(34,197,94,' + micAlpha + ')' : 'rgba(239,68,68,' + micAlpha + ')';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, r + 3, 0, Math.PI * 2); ctx.stroke();
   }
   // 光晕
   const glow = ctx.createRadialGradient(x, y, r * 0.5, x, y, r * 2);
