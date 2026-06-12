@@ -915,14 +915,24 @@ async function joinRoom(isCreate) {
   });
   mqttClient.on('error', (e) => { console.error('MQTT error', e); setStatus('信令不可达 · 刷新重试', true); });
 
-  // ── LiveKit 音频连接 ──
+  // ── LiveKit 音频连接 (浏览器生成JWT) ──
+  async function makeLKToken(identity, room) {
+    var header = {alg:'HS256',typ:'JWT'};
+    var now = Math.floor(Date.now()/1000);
+    var payload = {iss:LIVEKIT_KEY,sub:identity,nbf:now,exp:now+86400,
+      video:{room:room,roomJoin:true,canPublish:true,canSubscribe:true}};
+    var enc = new TextEncoder();
+    var h = btoa(JSON.stringify(header)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    var p = btoa(JSON.stringify(payload)).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    var key = await crypto.subtle.importKey('raw',enc.encode(LIVEKIT_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    var sig = await crypto.subtle.sign('HMAC',key,enc.encode(h+'.'+p));
+    var s = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    return h+'.'+p+'.'+s;
+  }
   try {
   var lkRoom = new LivekitClient.Room();
-  var at = new LivekitClient.AccessToken(LIVEKIT_KEY, LIVEKIT_SECRET, { identity: myPeerId, name: profileName || '我' });
-  at.addGrant({ roomJoin: true, room: roomName, canPublish: true, canSubscribe: true });
-  var jwt = at.toJwt();
-  console.log('LiveKit token generated, connecting to', LIVEKIT_URL);
   showToast('LiveKit 连接中...');
+  makeLKToken(myPeerId, roomName).then(function(jwt) {
   lkRoom.connect(LIVEKIT_URL, jwt).then(function() {
     console.log('LiveKit connected');
     // 发布本地音频
@@ -953,6 +963,7 @@ async function joinRoom(isCreate) {
   });
   // 保存 lkRoom 引用以便退出时断开
   window._lkRoom = lkRoom;
+  }).catch(function(e) { showToast('Token生成失败: ' + e.message); console.error(e); });
   } catch(e) { showToast('LiveKit初始化失败: ' + e.message); setStatus('音频错误', true); console.error('LiveKit init error', e); }
 
   // 发布到注册表
