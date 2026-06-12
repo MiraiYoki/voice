@@ -904,11 +904,9 @@ async function joinRoom(isCreate) {
   setTimeout(function() { resizeCanvas(); drawMap(); }, 100);
   setTimeout(function() { drawMap(); }, 400);
 
-  // 生成 Peer ID (LiveKit + MQTT 共用)
-  myPeerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
-
   // MQTT 房间发现
   const room = actualRoom;
+  myPeerId = 'vr-' + room + '-' + Math.random().toString(36).slice(2, 8);
   // 遗嘱: 断线时自动清理房间
   mqttClient = mqtt.connect(MQTT_URL, { clean: true, connectTimeout: 8000, reconnectPeriod: 0,
     will: { topic: 'voice-registry-will/' + roomName, payload: '', retain: false }
