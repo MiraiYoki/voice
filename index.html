@@ -952,12 +952,12 @@ async function joinRoom(isCreate) {
   }
   try {
   var lkRoom = new LivekitClient.Room();
-  showToast('LiveKit 连接中...');
   makeLKToken(myPeerId, roomName).then(function(jwt) {
   lkRoom.connect(LIVEKIT_URL, jwt).then(function() {
     console.log('LiveKit connected');
     // 发布本地音频
-    console.log('LiveKit connected, localStream=', !!localStream);
+    showToast('🔊 语音已连接');
+    console.log('LiveKit connected');
     if (localStream) {
       var audioTrack = localStream.getAudioTracks()[0];
       console.log('publishing track, exists=', !!audioTrack, 'enabled=', audioTrack ? audioTrack.enabled : 'N/A');
@@ -988,7 +988,7 @@ async function joinRoom(isCreate) {
     var js = $('joystick'); if (js) { js.style.display = 'flex'; }
     setStatus('', false, true, roomName);
   }).catch(function(e) {
-    showToast('LiveKit连接失败: ' + e.message);
+    showToast('⚠️ 语音连接失败 · 请重试');
     setStatus('音频未连接', true);
     $('game-bar').style.display = 'flex'; // 保底显示
   });
