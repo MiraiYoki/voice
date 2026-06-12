@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v145</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v155</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -549,10 +549,23 @@ function drawAvatar(x, y, color, label, isSelf, micOn, isSpeaking, ext) {
   // 标签
   const displayName = isSelf ? (profileName || '我') : (label || '');
   if (displayName) {
+    // 延迟数值 (ms)
+    var delayText = '';
+    if (!isSelf && ext && ext._snaps && ext._snaps.length) {
+      var age = Date.now() - ext._snaps[ext._snaps.length - 1].t;
+      delayText = age + 'ms';
+    }
+    // 名字
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px -apple-system, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(displayName, x, y - r - 14);
+    // 延迟数值
+    if (delayText) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.font = '9px -apple-system, sans-serif';
+      ctx.fillText(delayText, x, y + r + 14);
+    }
   }
 }
 
