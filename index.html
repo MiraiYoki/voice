@@ -194,7 +194,7 @@ body {
   <div class="header">
     <h1 style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
       <span><i data-lucide="radio" style="width:18px;height:18px;vertical-align:-3px"></i> <span id="room-title" style="cursor:default">空间语音聊天室</span></span>
-      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v155</span>
+      <span style="font-size:10px;color:var(--accent);background:var(--accent-dim);padding:2px 6px;border-radius:8px">v157</span>
       <span class="status" id="status" style="font-size:10px;font-weight:400">输入房间名加入</span>
     </h1>
   </div>
@@ -466,11 +466,12 @@ function drawMap() {
   for (let y = gs; y < h; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
   // 快照插值: 100ms延迟换绝对丝滑
-  var RENDER_DELAY = 100, now = Date.now();
+  var RENDER_DELAY = 100, nowT = Date.now();
   for (var [pid, p] of peers) {
     var snaps = p._snaps;
-    if (!snaps || snaps.length < 2) continue;
-    var targetT = now - RENDER_DELAY;
+    if (!snaps || snaps.length === 0) continue;
+    if (snaps.length === 1) { p.x = snaps[0].x; p.y = snaps[0].y; continue; }
+    var targetT = nowT - RENDER_DELAY;
     // 找目标时间点前后的两个快照
     var a = snaps[0], b = snaps[snaps.length - 1];
     for (var i = 0; i < snaps.length - 1; i++) {
@@ -976,14 +977,15 @@ async function joinRoom(isCreate) {
       console.log('publishing track, exists=', !!audioTrack, 'enabled=', audioTrack ? audioTrack.enabled : 'N/A');
       if (audioTrack) {
         lkRoom.localParticipant.publishTrack(audioTrack, { name: 'mic' }).then(function() {
-          console.log('track published OK');
-        }).catch(function(e) { console.error('publish failed', e); });
+          showToast('📤 麦克风已发布');
+        }).catch(function(e) { showToast('⚠️ 麦克风发布失败: ' + e.message); });
       }
     }
     // 接收远端音频 → 空间音频管线
     lkRoom.on('trackSubscribed', function(track, pub, participant) {
-      console.log('trackSubscribed:', track.kind, 'from', participant.identity);
       if (track.kind !== 'audio') return;
+      showToast('📥 收到 ' + (participant.name || participant.identity.slice(-6)) + ' 的音频');
+      console.log('trackSubscribed:', track.kind, 'from', participant.identity);
       var remoteStream = new MediaStream([track.mediaStreamTrack]);
       var pid = participant.identity;
       if (!peers.has(pid)) {
@@ -1103,7 +1105,7 @@ function setupAudioNodes(pid, remoteStream) {
       info.isSpeaking = false; info.color = COLORS[peers.size % COLORS.length];
       if (data.avatar) { info._avatarUrl = data.avatar; info._avatarImg = new Image(); info._avatarImg.src = data.avatar; }
       peers.set(data.peerId, info);
-      info._targetX = info.x; info._targetY = info.y;
+      info._snaps = [{ x: info.x, y: info.y, t: Date.now() }];
       updateRoomCount(); drawMap();
     } else if (type === 'pos') {
       const data = JSON.parse(msg.toString());
